@@ -294,6 +294,129 @@
     return { value: null, status: 'unparseable', message: 'Could not recognise "' + text + '" as a date.' };
   }
 
+  /*
+   * Controlled vocabulary for the head attribute block. These are the only values the
+   * client accepts in M-P; anything else is either a typo we can fix or a real problem.
+   */
+  const ATTRIBUTE_VOCABULARY = {};
+  ATTRIBUTE_VOCABULARY[COL.HEAD_AND_HAIR] = ['Glasses', 'Religious headwear', 'Hat', 'Scarf'];
+  ATTRIBUTE_VOCABULARY[COL.FACIAL_FEATURES] = ['Mustache', 'Beard', 'Dimples', 'Facial scars', 'Facial moles', 'Acne', 'Face/neck tattoos'];
+  ATTRIBUTE_VOCABULARY[COL.ACCESSORIES] = ['Makeup', 'Necklace', 'Earrings', 'Nose piercing', 'Lip piercing', 'Eyebrow piercing'];
+  ATTRIBUTE_VOCABULARY[COL.OTHERS] = ['Freckles', 'Wrinkles', 'Bindi', 'Other tattoos', 'Other piercings', 'Other - not specified'];
+
+  const MULTI_VALUE_SPLIT = /[;,]/;
+  const MULTI_VALUE_JOIN = ', ';
+
+  /* Fold away the differences that are never meaningful: case, punctuation, spacing. */
+  function vocabKey(text) {
+    return String(text)
+      .toLowerCase()
+      .replace(/[\/\\\-_.,;:]+/g, ' ')
+      .replace(/[^a-z0-9 ]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /* Damerau-Levenshtein (optimal string alignment) so a swapped pair costs 1, not 2. */
+  function editDistance(a, b) {
+    const m = a.length;
+    const n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+
+    const d = [];
+    for (let i = 0; i <= m; i++) d.push([i]);
+    for (let j = 1; j <= n; j++) d[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) {
+          d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+        }
+      }
+    }
+    return d[m][n];
+  }
+
+  /* Short words tolerate fewer edits, otherwise "Hat" would absorb half the alphabet. */
+  function maxEdits(length) {
+    if (length < 5) return 1;
+    if (length < 9) return 2;
+    return 3;
+  }
+
+  /*
+   * Resolve one submitted value against a column's vocabulary.
+   * status: exact | normalized | corrected | ambiguous | unknown
+   */
+  function matchVocabulary(rawValue, allowed) {
+    const key = vocabKey(rawValue);
+    if (!key) return { status: 'unknown', value: null };
+
+    for (let i = 0; i < allowed.length; i++) {
+      if (vocabKey(allowed[i]) === key) {
+        return {
+          status: String(rawValue).trim() === allowed[i] ? 'exact' : 'normalized',
+          value: allowed[i],
+        };
+      }
+    }
+
+    let best = null;
+    let bestDistance = Infinity;
+    let tied = false;
+
+    for (let i = 0; i < allowed.length; i++) {
+      const distance = editDistance(key, vocabKey(allowed[i]));
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = allowed[i];
+        tied = false;
+      } else if (distance === bestDistance) {
+        tied = true;
+      }
+    }
+
+    if (best && bestDistance <= maxEdits(Math.max(key.length, vocabKey(best).length))) {
+      // A tie means two vocabulary entries are equally plausible, so guessing would be a coin flip.
+      return tied ? { status: 'ambiguous', value: null } : { status: 'corrected', value: best, distance: bestDistance };
+    }
+    return { status: 'unknown', value: null };
+  }
+
+  /*
+   * Validate a whole cell, which may carry several comma or semicolon separated values.
+   * Confident fixes are applied; anything unrecognised is preserved verbatim and reported.
+   */
+  function validateAttributeCell(rawValue, allowed) {
+    const parts = String(rawValue).split(MULTI_VALUE_SPLIT)
+      .map(function (part) { return normalizeWhitespace(part); })
+      .filter(function (part) { return part !== ''; });
+
+    if (!parts.length) return { value: null, corrected: [], unresolved: [] };
+
+    const resolved = [];
+    const corrected = [];
+    const unresolved = [];
+
+    parts.forEach(function (part) {
+      const match = matchVocabulary(part, allowed);
+      if (match.status === 'exact') {
+        resolved.push(match.value);
+      } else if (match.status === 'normalized' || match.status === 'corrected') {
+        resolved.push(match.value);
+        corrected.push(part + '" to "' + match.value);
+      } else {
+        resolved.push(part);
+        unresolved.push(part);
+      }
+    });
+
+    return { value: resolved.join(MULTI_VALUE_JOIN), corrected: corrected, unresolved: unresolved };
+  }
+
   /* A cell holding only slashes and spaces is a placeholder for "nothing", not data. */
   function isSlashPlaceholder(value) {
     if (typeof value !== 'string') return false;
@@ -507,7 +630,38 @@
         values[COL.OTHERS] = null;
       }
 
-      // Rule 4: Head attribute block M-P drives column Q. Runs after rule 3 so a cleared P counts as empty.
+      // Rule 4: M-P accept only the client's vocabulary. Runs after rule 3 so a cleared P is skipped.
+      Object.keys(ATTRIBUTE_VOCABULARY).forEach(function (key) {
+        const index = Number(key);
+        if (isBlank(values[index])) return;
+
+        const allowed = ATTRIBUTE_VOCABULARY[index];
+        const original = String(values[index]);
+        const outcome = validateAttributeCell(original, allowed);
+        values[index] = outcome.value;
+
+        if (outcome.unresolved.length) {
+          const fixedNote = outcome.corrected.length
+            ? ' Also corrected "' + outcome.corrected.join('", "') + '".'
+            : '';
+          issues.push(makeIssue({
+            severity: 'review', file: fileName, sheet: worksheet.name, sourceRow: rowNumber, mergedRow: excelRow,
+            column: columnLetter(index), header: CANONICAL_HEADERS[index], rule: 'Value not on the accepted list',
+            original: original, corrected: outcome.value,
+            message: 'Not recognised: "' + outcome.unresolved.join('", "') + '". Kept as submitted for a human to fix.' +
+              fixedNote + ' Accepted values are: ' + allowed.join(', ') + '.',
+          }));
+        } else if (outcome.corrected.length) {
+          issues.push(makeIssue({
+            severity: 'fixed', file: fileName, sheet: worksheet.name, sourceRow: rowNumber, mergedRow: excelRow,
+            column: columnLetter(index), header: CANONICAL_HEADERS[index], rule: 'Value matched to the accepted list',
+            original: original, corrected: outcome.value,
+            message: 'Corrected "' + outcome.corrected.join('", "') + '".',
+          }));
+        }
+      });
+
+      // Rule 5: Head attribute block M-P drives column Q. Runs last so cleared cells count as empty.
       let headAttributeFilled = false;
       const filledHeadColumns = [];
       for (let i = HEAD_ATTRIBUTE_START; i <= HEAD_ATTRIBUTE_END; i++) {
@@ -649,6 +803,26 @@
     });
   }
 
+  const REVIEW_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE699' } };
+
+  /*
+   * Amber a cell whenever a human still needs to look at it, and attach the reason as a
+   * comment. A clean run leaves no highlights at all, so any colour means "not ready to send".
+   */
+  function highlightReviewCells(sheet, issues) {
+    issues.forEach(function (issue) {
+      if (issue.severity !== 'review') return;
+      if (!issue.mergedRow || !issue.header) return;
+
+      const columnIndex = CANONICAL_HEADERS.indexOf(issue.header);
+      if (columnIndex < 0) return;
+
+      const cell = sheet.getCell(issue.mergedRow, columnIndex + 1);
+      cell.fill = REVIEW_FILL;
+      cell.note = issue.rule + ': ' + issue.message;
+    });
+  }
+
   function buildMergedWorkbook(mergeResult, options) {
     const opts = options || {};
     const workbook = new ExcelJS.Workbook();
@@ -668,6 +842,8 @@
 
     // Keep Birthdate as literal text so Excel cannot re-interpret "1990/05" on open.
     sheet.getColumn(COL.BIRTHDATE + 1).numFmt = '@';
+
+    highlightReviewCells(sheet, mergeResult.issues);
 
     sheet.autoFilter = {
       from: { row: 1, column: 1 },

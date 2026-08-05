@@ -157,15 +157,51 @@ Applied in this order — the order matters, because rule 3 can change the outco
 
 3. **Column P (Others)** — a cell containing only a slash placeholder (`/`, `//`, ` / `) is emptied.
    A cell with real content is left completely alone, *including* content that happens to contain a slash:
-   `Scar / birthmark` survives untouched.
+   `Face/neck tattoos` survives untouched.
 
-4. **Head attribute block, M–Q** — evaluated per row, after rule 3:
+4. **Columns M–P accept only the client's vocabulary** (see below). Empty is always fine. A near miss is
+   corrected automatically; anything genuinely off the list is **kept exactly as submitted** and flagged.
+
+5. **Head attribute block, M–Q** — evaluated per row, and deliberately last, so that a cell cleared by rule 3
+   correctly counts as empty here:
    - If **any** of M, N, O, P has data → column Q is emptied.
    - If **all** of M–P are empty → column Q is set to `N/A-none apply`.
 
 Also reported: missing columns, unrecognised extra columns (which are *not* carried into the output), and
 possible duplicate participants across files (matched on email, falling back to name). Duplicates are
 **flagged, never auto-removed** — both rows are kept for you to decide.
+
+### Accepted values for M–P
+
+| Col | Header | Accepted values |
+|-----|--------|-----------------|
+| M | Head and Hair | Glasses · Religious headwear · Hat · Scarf |
+| N | Facial Features | Mustache · Beard · Dimples · Facial scars · Facial moles · Acne · Face/neck tattoos |
+| O | Accessories and jewellery | Makeup · Necklace · Earrings · Nose piercing · Lip piercing · Eyebrow piercing |
+| P | Others | Freckles · Wrinkles · Bindi · Other tattoos · Other piercings · Other - not specified |
+
+A cell may hold **several values separated by commas or semicolons** — each is checked independently and the
+cell is rewritten with a consistent `, ` separator.
+
+Matching ignores case, punctuation and spacing, then falls back to a Damerau–Levenshtein comparison so a
+typo of one or two characters still resolves. Real examples from `sample-files/`:
+
+| Submitted | Result |
+|-----------|--------|
+| `Glases` | → `Glasses` (auto-fixed) |
+| `Dimple` | → `Dimples` (auto-fixed) |
+| `Moustache` | → `Mustache` (auto-fixed — British spelling) |
+| `Freckels` | → `Freckles` (auto-fixed — transposed letters) |
+| `DIMPLES` | → `Dimples` (auto-fixed — case) |
+| `Makeup; Earrings` | → `Makeup, Earrings` (auto-fixed — separator) |
+| `Sombrero` | kept as-is, **flagged for review** |
+| `Glasses; Sombrero` | → `Glasses, Sombrero` — the good half is fixed, the cell is still **flagged** |
+
+The tolerance scales with word length (1 edit under 5 characters, 2 under 9, 3 above), and if two vocabulary
+entries are *equally* close the value is flagged rather than guessed. Nothing off-list is ever silently
+replaced or deleted.
+
+To change the vocabulary, edit `ATTRIBUTE_VOCABULARY` near the top of `js/core.js`.
 
 ### Severity levels
 
@@ -174,6 +210,14 @@ possible duplicate participants across files (matched on email, falling back to 
 | `AUTO-FIXED` | Corrected for you. Informational. |
 | `NEEDS REVIEW` | Could not be fixed safely. Original value preserved. |
 | `ERROR` | Structural problem with the file, e.g. a missing column. |
+
+### Highlighted cells
+
+Every `NEEDS REVIEW` issue also **shades the offending cell amber in the merged workbook** and attaches the
+reason as a cell comment, so you can hover it in Excel instead of cross-referencing the QA report.
+
+This means a clean run produces **no highlighting at all** — any colour in the delivery sheet is a signal it
+is not ready to send yet. Fix the source files, re-run, and the highlights disappear.
 
 ---
 
