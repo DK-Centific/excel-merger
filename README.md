@@ -20,10 +20,79 @@ python3 -m http.server 8765 --directory /Users/davidk/Desktop/Projects/ExcelMerg
 
 Then open <http://localhost:8765>.
 
-**Hosted for the team:** upload the whole folder to any static host — Azure Static Web Apps, SharePoint, GitHub
-Pages, Netlify. There is no backend to deploy.
-
 Try it with the files in `sample-files/`, which contain deliberately messy data covering every QA rule.
+
+**Hosted for the team:** see [Deploying](#deploying) below. The repo is private and deliberately **not** on
+GitHub Pages — a Pages site is publicly readable even when its repo is private, which would expose the column
+schema to anyone with the URL.
+
+---
+
+## Deploying
+
+Deploys to **Azure Static Web Apps** with Microsoft 365 sign-in, so only people you allow can load it.
+The Free plan is enough. Pushing to `main` redeploys automatically via
+`.github/workflows/azure-static-web-apps.yml`.
+
+### One-time setup
+
+1. **Azure Portal → Create a resource → Static Web App.**
+   - Plan type: **Free**
+   - Deployment source: **GitHub** → authorise → org `DK-Centific`, repo `excel-merger`, branch `main`
+   - Build presets: **Custom**, with app location `/`, api location empty, output location empty
+
+   Azure will commit its own workflow file. Delete that one and keep
+   `.github/workflows/azure-static-web-apps.yml` from this repo — it sets `skip_app_build: true`, which the
+   generated one does not, and without it the deploy fails looking for a build step.
+
+2. **Copy the deployment token** — Static Web App → *Manage deployment token*.
+
+3. **Add it to GitHub** → repo *Settings → Secrets and variables → Actions → New repository secret*, named
+   exactly `AZURE_STATIC_WEB_APPS_API_TOKEN`. Add it yourself; it is a credential and should not be pasted
+   into chat.
+
+4. **Invite each colleague** — Static Web App → *Role management* → *Invite*, pick **Microsoft Entra ID** as
+   the provider, enter their work email, and assign the role **`merger`** (spelled exactly that way; it is
+   what `staticwebapp.config.json` requires). Send them the generated invitation link.
+
+Anyone who signs in without that role lands on `403.html` telling them to ask for access, rather than a bare
+Azure error page.
+
+### Tenant-wide access instead of invitations
+
+The Free plan's built-in Entra ID provider is a Microsoft-managed multi-tenant app, so *any* Microsoft account
+can authenticate — the `merger` role is what actually restricts access, and that means inviting people one at
+a time. The Free plan also caps how many custom-role users you can invite (25 at the time of writing; check
+current Azure limits).
+
+To let everyone at Centific in automatically, upgrade the Static Web App to the **Standard** plan and register
+your own Entra ID application with a tenant-scoped issuer:
+
+```jsonc
+// staticwebapp.config.json — add alongside "routes"
+"auth": {
+  "identityProviders": {
+    "azureActiveDirectory": {
+      "registration": {
+        "openIdIssuer": "https://login.microsoftonline.com/<YOUR_TENANT_ID>/v2.0",
+        "clientIdSettingName": "AAD_CLIENT_ID",
+        "clientSecretSettingName": "AAD_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+Then change the `/*` route's `allowedRoles` from `["merger"]` to `["authenticated"]` — the tenant-scoped
+issuer is already doing the restricting. Store `AAD_CLIENT_ID` and `AAD_CLIENT_SECRET` in the Static Web App's
+*Configuration* settings, never in this repo. Custom identity providers require the Standard plan.
+
+### Security headers
+
+`staticwebapp.config.json` sends a strict `Content-Security-Policy` limiting network access to Microsoft Graph,
+Entra ID login and SharePoint, plus `no-store` caching so merged participant data is never written to a shared
+cache. If you add a library or a new API, widen the policy there — the app has no inline scripts or styles, and
+keeping it that way is what lets the policy stay strict.
 
 ---
 
@@ -136,14 +205,17 @@ to open.
 ## Layout
 
 ```
-index.html          markup
-config.js           optional Azure client/tenant ID defaults
-css/styles.css      Centific design system tokens and components
-js/core.js          schema, QA rules, merge, workbook building  ← the logic lives here
-js/sharepoint.js    MSAL sign-in and Microsoft Graph download
-js/app.js           UI wiring
-vendor/             ExcelJS and MSAL, vendored so there are no CDN calls
-sample-files/       three agency files with deliberate data problems
+index.html                  markup
+403.html                    shown to signed-in users who lack the merger role
+config.js                   optional Azure client/tenant ID defaults
+staticwebapp.config.json    Azure auth rules, routing and security headers
+css/styles.css              Centific design system tokens and components
+js/core.js                  schema, QA rules, merge, workbook building  ← the logic lives here
+js/sharepoint.js            MSAL sign-in and Microsoft Graph download
+js/app.js                   UI wiring
+vendor/                     ExcelJS and MSAL, vendored so there are no CDN calls
+sample-files/               three agency files with deliberate data problems
+.github/workflows/          Azure Static Web Apps deployment
 ```
 
 To change a QA rule, edit `js/core.js` — the canonical header list, the column constants and each rule are all

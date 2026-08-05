@@ -700,6 +700,8 @@ table.grid td { padding: 11px 14px; font-size: 14px; vertical-align: top; letter
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 24px; }
 
+.spaced-top { margin-top: 16px; }
+
 .hidden { display: none !important; }
 
 /* ─────────────── responsive ─────────────── */
