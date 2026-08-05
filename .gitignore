@@ -1,0 +1,8 @@
+.DS_Store
+.venv/
+node_modules/
+
+# Output files land in the served directory when downloaded from a local server
+Merged_Delivery_*.xlsx
+QA_Report_*.xlsx
+~$*.xlsx

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merge — Agency Excel Consolidator</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-dot"></span>
+    <span class="nav-name">Merge</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-sub">Agency Excel Consolidator</span>
+  </div>
+  <div class="nav-right">
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle light and dark theme"></button>
+    <button type="button" id="settings-btn" class="icon-btn" aria-label="SharePoint settings">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<main class="shell">
+
+  <header class="hero">
+    <p class="hero-eyebrow">Delivery Prep</p>
+    <h1 class="hero-title">One workbook, checked row by row.</h1>
+    <p class="hero-sub">
+      Pull in every agency submission, merge them under a single set of headers, and get a QA report that shows exactly
+      what was corrected and what still needs a human.
+    </p>
+    <div class="privacy-strip">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+      <span><strong>Your data stays on this device.</strong> Files are read, merged, and checked entirely inside your
+        browser. Nothing is uploaded to any server.</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">1</span>
+      <h2>Add the agency files</h2>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab is-active" role="tab" data-tab="upload" aria-selected="true">Upload files</button>
+      <button type="button" class="tab" role="tab" data-tab="sharepoint" aria-selected="false">SharePoint links</button>
+    </div>
+
+    <div class="tab-panel is-active" data-panel="upload">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose Excel files or drop them here">
+        <svg class="ico dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
+        </svg>
+        <p class="dropzone-title">Drop .xlsx files here</p>
+        <p class="dropzone-sub">or click to browse</p>
+      </div>
+      <input type="file" id="file-input" accept=".xlsx,.xlsm" multiple hidden>
+    </div>
+
+    <div class="tab-panel" data-panel="sharepoint">
+      <div id="sp-unconfigured" class="notice notice-warn">
+        <p><strong>SharePoint fetch is not set up yet.</strong> It needs an Azure app registration so the browser can sign
+        you in to Microsoft 365. Add the client ID under <button type="button" class="linklike" id="open-settings-link">Settings</button>,
+        or just upload the files directly on the other tab.</p>
+      </div>
+
+      <div id="sp-configured" class="hidden">
+        <div class="sp-account">
+          <span id="sp-status" class="sp-status">Not signed in</span>
+          <button type="button" id="sp-signin" class="btn btn-secondary">Sign in to Microsoft 365</button>
+          <button type="button" id="sp-signout" class="btn btn-ghost hidden">Sign out</button>
+        </div>
+        <label class="label" for="sp-urls">SharePoint or OneDrive links — one per line</label>
+        <textarea id="sp-urls" rows="5" spellcheck="false"
+          placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/AgencyA.xlsx&#10;https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Submissions"></textarea>
+        <p class="hint">A link to a folder pulls in every .xlsx inside it.</p>
+        <button type="button" id="sp-fetch" class="btn btn-secondary" style="margin-top:14px">Fetch files</button>
+      </div>
+    </div>
+
+    <div id="file-list-wrap" class="hidden">
+      <div class="list-head">
+        <h3>Files queued <span id="file-count" class="count-pill">0</span></h3>
+        <button type="button" id="clear-files" class="linklike">Remove all</button>
+      </div>
+      <ul id="file-list" class="file-list"></ul>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">2</span>
+      <h2>Options</h2>
+    </div>
+
+    <div class="option-row">
+      <div class="option-text">
+        <label for="date-order">Ambiguous dates like <code>05/06/1990</code></label>
+        <p class="hint">When the day and month are both 12 or lower there is no way to tell them apart. Pick which one
+          comes first. Every affected row is flagged for review either way.</p>
+      </div>
+      <select id="date-order">
+        <option value="day">Day first — DD/MM/YYYY</option>
+        <option value="month">Month first — MM/DD/YYYY</option>
+      </select>
+    </div>
+
+    <div class="option-row">
+      <div class="option-text">
+        <label id="include-qa-label">Add the QA report as extra sheets in the merged file</label>
+        <p class="hint">Leave this off for the copy you send to the client. The QA report is always downloadable
+          separately.</p>
+      </div>
+      <button type="button" id="include-qa" class="switch" role="switch" aria-checked="false"
+        aria-labelledby="include-qa-label"></button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">3</span>
+      <h2>Merge and check</h2>
+    </div>
+    <button type="button" id="merge-btn" class="btn btn-primary btn-lg" disabled>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7l2 3h7M4 7v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/></svg>
+      Merge files
+    </button>
+    <div id="progress" class="progress hidden"><span class="spinner"></span><span id="progress-text">Working…</span></div>
+    <div id="global-error" class="notice notice-error hidden" style="margin-top:16px"></div>
+  </section>
+
+  <section id="results" class="card hidden">
+    <div class="card-head">
+      <h2>Results</h2>
+      <div class="downloads">
+        <button type="button" id="download-merged" class="btn btn-primary">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Merged Excel
+        </button>
+        <button type="button" id="download-qa" class="btn btn-secondary">QA report</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <label class="label">Source files</label>
+    <div class="table-wrap">
+      <table class="grid sources-table">
+        <thead>
+          <tr><th>Source file</th><th>Origin</th><th>Rows</th><th>Merged rows</th><th>Status</th></tr>
+        </thead>
+        <tbody id="sources-body"></tbody>
+      </table>
+    </div>
+
+    <label class="label">QA report</label>
+    <div class="qa-controls">
+      <div class="filters" id="severity-filters">
+        <button type="button" class="chip is-active" data-severity="all">All</button>
+        <button type="button" class="chip" data-severity="error">Errors</button>
+        <button type="button" class="chip" data-severity="review">Needs review</button>
+        <button type="button" class="chip" data-severity="fixed">Auto-fixed</button>
+      </div>
+      <input type="search" id="qa-search" placeholder="Search the QA report…" aria-label="Search QA report">
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="grid qa-table">
+          <thead>
+            <tr>
+              <th>Severity</th><th>File</th><th>Src</th><th>Row</th>
+              <th>Col</th><th>Check</th><th>Original</th><th>Corrected</th><th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="qa-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <p id="qa-truncated" class="hint hidden"></p>
+    <p id="qa-empty" class="hint hidden">No issues match this filter.</p>
+  </section>
+
+</main>
+
+<div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal-card">
+    <h2 id="settings-title">SharePoint connection</h2>
+    <p class="hint">
+      To let this app pull files straight from SharePoint, your Microsoft 365 admin needs to register a single-page
+      application in Azure AD and grant it the delegated <code>Files.Read.All</code> and <code>Sites.Read.All</code>
+      permissions. Paste the resulting IDs below. See <code>README.md</code> for the exact steps to send your admin.
+    </p>
+
+    <label class="label" for="cfg-client">Application (client) ID</label>
+    <input type="text" id="cfg-client" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000">
+
+    <label class="label" for="cfg-tenant">Directory (tenant) ID</label>
+    <input type="text" id="cfg-tenant" spellcheck="false" placeholder="common">
+    <p class="hint">Leave as <code>common</code> unless your admin gives you a specific tenant ID.</p>
+
+    <label class="label">Redirect URI for your admin</label>
+    <p class="hint">Must be added as a <strong>Single-page application</strong> platform, exactly as shown.</p>
+    <code id="redirect-uri" class="redirect-uri"></code>
+
+    <div class="modal-actions">
+      <button type="button" id="cfg-cancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="cfg-save" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/exceljs.min.js"></script>
+<script src="vendor/msal-browser.min.js"></script>
+<script src="config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/sharepoint.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
