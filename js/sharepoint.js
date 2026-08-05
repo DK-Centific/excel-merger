@@ -64,9 +64,29 @@
     return msalInstance;
   }
 
-  async function signIn() {
+  /*
+   * Pick up an account MSAL already holds for this session, so a page reload does not
+   * look like a sign-out. Returns null when not configured or not signed in.
+   */
+  async function restore() {
+    if (!isConfigured()) return null;
+    try {
+      const instance = await getMsal();
+      const accounts = instance.getAllAccounts();
+      if (!accounts.length) return null;
+      activeAccount = accounts[0];
+      instance.setActiveAccount(activeAccount);
+      return activeAccount;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function signIn(forceAccountPicker) {
     const instance = await getMsal();
-    const result = await instance.loginPopup({ scopes: SCOPES, prompt: 'select_account' });
+    const request = { scopes: SCOPES };
+    if (forceAccountPicker) request.prompt = 'select_account';
+    const result = await instance.loginPopup(request);
     activeAccount = result.account;
     instance.setActiveAccount(activeAccount);
     return activeAccount;
@@ -214,6 +234,7 @@
     isConfigured: isConfigured,
     getConfig: getConfig,
     saveConfig: saveConfig,
+    restore: restore,
     signIn: signIn,
     signOut: signOut,
     getAccount: getAccount,

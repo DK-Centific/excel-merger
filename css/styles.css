@@ -412,7 +412,37 @@ select { width: auto; min-width: 215px; cursor: pointer; }
 
 /* ─────────────── sharepoint ─────────────── */
 
-.sp-account { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.sp-stage {
+  padding: 18px 0;
+  border-top: .5px solid var(--border);
+  transition: opacity .25s var(--ease);
+}
+.sp-stage:first-of-type { border-top: 0; padding-top: 0; }
+.sp-stage.is-locked { opacity: .42; }
+
+.sp-stage-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.sp-stage-head h3 { font-size: 15px; letter-spacing: -.02em; }
+.sp-stage-head .hint { margin-top: 4px; }
+
+.sp-marker {
+  display: grid;
+  place-items: center;
+  width: 30px; height: 30px;
+  flex: 0 0 30px;
+  border-radius: 9px;
+  background: var(--bg3);
+  border: .5px solid var(--border-strong);
+  color: var(--text3);
+  transition: background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease);
+}
+.sp-marker svg { width: 15px; height: 15px; }
+.sp-marker.is-done {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+  color: var(--green-fg);
+}
+
+.sp-account { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sp-status { font-size: 13px; color: var(--text2); }
 .sp-status.is-on { color: var(--green-fg); font-weight: 500; }
 

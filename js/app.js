@@ -312,17 +312,40 @@
     $('sp-configured').classList.toggle('hidden', !configured);
 
     const account = SharePointSource.getAccount();
+    const signedIn = !!account;
     const status = $('sp-status');
-    if (account) {
+
+    if (signedIn) {
       status.textContent = 'Signed in as ' + (account.username || account.name);
-      status.classList.add('is-on');
-      $('sp-signin').classList.add('hidden');
-      $('sp-signout').classList.remove('hidden');
     } else {
       status.textContent = 'Not signed in';
-      status.classList.remove('is-on');
-      $('sp-signin').classList.remove('hidden');
-      $('sp-signout').classList.add('hidden');
+    }
+    status.classList.toggle('is-on', signedIn);
+
+    $('sp-signin').classList.toggle('hidden', signedIn);
+    $('sp-switch').classList.toggle('hidden', !signedIn);
+    $('sp-signout').classList.toggle('hidden', !signedIn);
+    $('sp-marker-signin').classList.toggle('is-done', signedIn);
+
+    // Picking a location is meaningless until we know whose permissions apply.
+    $('sp-stage-url').classList.toggle('is-locked', !signedIn);
+    $('sp-urls').disabled = !signedIn;
+    $('sp-fetch').disabled = !signedIn;
+  }
+
+  async function handleSignIn(forceAccountPicker) {
+    clearError();
+    try {
+      await SharePointSource.signIn(forceAccountPicker);
+      refreshSharePointPanel();
+      $('sp-urls').focus();
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      if (/user_cancelled|popup_window_error|interaction_in_progress/i.test(message)) {
+        showError('Sign-in was cancelled or the popup was blocked. Allow popups for this site and try again.');
+      } else {
+        showError('Sign-in failed: ' + message);
+      }
     }
   }
 
@@ -501,15 +524,8 @@
     $('merge-btn').addEventListener('click', runMerge);
     $('sp-fetch').addEventListener('click', fetchFromSharePoint);
 
-    $('sp-signin').addEventListener('click', async function () {
-      clearError();
-      try {
-        await SharePointSource.signIn();
-        refreshSharePointPanel();
-      } catch (err) {
-        showError('Sign-in failed: ' + (err && err.message ? err.message : String(err)));
-      }
-    });
+    $('sp-signin').addEventListener('click', function () { handleSignIn(false); });
+    $('sp-switch').addEventListener('click', function () { handleSignIn(true); });
 
     $('sp-signout').addEventListener('click', async function () {
       try {
@@ -532,6 +548,9 @@
 
     refreshSharePointPanel();
     renderFileList();
+
+    // A reload should not look like a sign-out if MSAL still holds the session.
+    SharePointSource.restore().then(refreshSharePointPanel);
   }
 
   document.addEventListener('DOMContentLoaded', init);

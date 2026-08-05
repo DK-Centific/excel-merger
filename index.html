@@ -69,22 +69,49 @@
 
     <div class="tab-panel" data-panel="sharepoint">
       <div id="sp-unconfigured" class="notice notice-warn">
-        <p><strong>SharePoint fetch is not set up yet.</strong> It needs an Azure app registration so the browser can sign
-        you in to Microsoft 365. Add the client ID under <button type="button" class="linklike" id="open-settings-link">Settings</button>,
-        or just upload the files directly on the other tab.</p>
+        <p><strong>This deployment isn't connected to Microsoft 365 yet.</strong> A one-time Azure app
+        registration is needed before anyone can sign in. Whoever set this up can add it under
+        <button type="button" class="linklike" id="open-settings-link">Settings</button>. Until then, use the
+        Upload files tab.</p>
       </div>
 
       <div id="sp-configured" class="hidden">
-        <div class="sp-account">
-          <span id="sp-status" class="sp-status">Not signed in</span>
-          <button type="button" id="sp-signin" class="btn btn-secondary">Sign in to Microsoft 365</button>
-          <button type="button" id="sp-signout" class="btn btn-ghost hidden">Sign out</button>
-        </div>
-        <label class="label" for="sp-urls">SharePoint or OneDrive links — one per line</label>
-        <textarea id="sp-urls" rows="5" spellcheck="false"
-          placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/AgencyA.xlsx&#10;https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Submissions"></textarea>
-        <p class="hint">A link to a folder pulls in every .xlsx inside it.</p>
-        <button type="button" id="sp-fetch" class="btn btn-secondary spaced-top">Fetch files</button>
+
+        <section class="sp-stage" id="sp-stage-signin">
+          <div class="sp-stage-head">
+            <span class="sp-marker" id="sp-marker-signin" aria-hidden="true">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M12 17v-3m-5 3h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2zM8 8V6a4 4 0 0 1 8 0v2"/></svg>
+            </span>
+            <div>
+              <h3>Sign in to Microsoft 365</h3>
+              <p class="hint">The tool reads files <strong>as you</strong>. You'll only ever see SharePoint
+                locations your own account can already open.</p>
+            </div>
+          </div>
+          <div class="sp-account">
+            <span id="sp-status" class="sp-status">Not signed in</span>
+            <button type="button" id="sp-signin" class="btn btn-primary">Sign in with Microsoft 365</button>
+            <button type="button" id="sp-switch" class="btn btn-ghost hidden">Switch account</button>
+            <button type="button" id="sp-signout" class="btn btn-ghost hidden">Sign out</button>
+          </div>
+        </section>
+
+        <section class="sp-stage is-locked" id="sp-stage-url">
+          <div class="sp-stage-head">
+            <span class="sp-marker" aria-hidden="true">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            </span>
+            <div>
+              <h3>Point it at the files</h3>
+              <p class="hint">Paste a link to a workbook, or to a folder to pull in every .xlsx inside it.</p>
+            </div>
+          </div>
+          <label class="label" for="sp-urls">SharePoint or OneDrive links — one per line</label>
+          <textarea id="sp-urls" rows="5" spellcheck="false" disabled
+            placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/AgencyA.xlsx&#10;https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Submissions"></textarea>
+          <button type="button" id="sp-fetch" class="btn btn-secondary spaced-top" disabled>Fetch files</button>
+        </section>
+
       </div>
     </div>
 
@@ -195,11 +222,16 @@
 
 <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="modal-card">
-    <h2 id="settings-title">SharePoint connection</h2>
+    <h2 id="settings-title">Microsoft 365 connection</h2>
     <p class="hint">
-      To let this app pull files straight from SharePoint, your Microsoft 365 admin needs to register a single-page
-      application in Azure AD and grant it the delegated <code>Files.Read.All</code> and <code>Sites.Read.All</code>
-      permissions. Paste the resulting IDs below. See <code>README.md</code> for the exact steps to send your admin.
+      <strong>Set once per deployment — users never need to open this.</strong> To bake it in for everyone, put the
+      same IDs in <code>config.js</code> instead; anything entered here overrides that, for this browser only.
+    </p>
+    <p class="hint">
+      Your Microsoft 365 admin registers a single-page application in Azure AD and grants it the
+      <strong>delegated</strong> <code>Files.Read.All</code> and <code>Sites.Read.All</code> permissions.
+      Delegated means the app acts as each signed-in user and can never reach a file that user could not
+      already open. See <code>README.md</code> for the exact request to send your admin.
     </p>
 
     <label class="label" for="cfg-client">Application (client) ID</label>

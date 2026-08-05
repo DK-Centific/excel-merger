@@ -187,27 +187,62 @@ The on-screen table renders the first 500 issues for speed; the downloaded repor
 
 ## SharePoint links (optional)
 
-The **Upload files** tab works immediately with no setup. The **SharePoint links** tab lets you paste
-SharePoint/OneDrive URLs instead — including a folder link, which pulls in every `.xlsx` inside it.
+The **Upload files** tab works immediately with no setup. The **SharePoint links** tab is a two-step flow:
 
-That tab needs a one-time Azure app registration, because a browser cannot reach Microsoft 365 without one.
-Send your Microsoft 365 admin the following:
+1. **Sign in to Microsoft 365.** Until you do, step 2 stays locked — there is no point choosing a location
+   before the app knows whose permissions apply.
+2. **Paste SharePoint or OneDrive links**, one per line. A folder link pulls in every `.xlsx` inside it.
+
+### Access is your account's access
+
+The app uses **delegated** permissions, so it acts *as the signed-in user* and never has an identity of its
+own. Effective access is the intersection of what the app may request and what that person can already reach:
+
+- If your account can open a SharePoint location, the tool can read it.
+- If it cannot, Graph returns 403/404 and that link is reported as failed.
+- A colleague signing in sees only what *their* account can see.
+- Revoking someone's SharePoint access revokes it here too, immediately. MFA and Conditional Access apply
+  normally, because it is an ordinary interactive sign-in.
+
+`Files.Read.All` sounds alarming but, as a *delegated* scope, it means "all files **the signed-in user can
+access**" — not all files in the tenant. The `.All` only distinguishes it from `Files.Read`, which covers just
+your own OneDrive and cannot reach SharePoint sites shared with you. This is usually the sticking point when
+asking an admin to approve it. (`Sites.Read.All` may turn out to be unnecessary — both Graph calls the app
+makes are likely satisfied by `Files.Read.All` alone. Worth testing once a registration exists, since it makes
+the admin ask smaller.)
+
+The tool only ever **reads**. It never writes back to SharePoint; merged output is saved through a normal
+browser download. Saving results back to a SharePoint folder would need `Files.ReadWrite.All` and a code
+change.
+
+Tokens are held in `sessionStorage`, so closing the tab discards them — deliberate, for shared machines.
+
+### One-time registration
+
+This is set up **once per deployment** — end users never open the Settings dialog. Send your Microsoft 365
+admin the following:
 
 > Please register a single-page application in Azure AD:
 >
 > 1. **Azure Portal → Microsoft Entra ID → App registrations → New registration**
 > 2. Name: `Agency Excel Merger`
 > 3. Supported account types: *Accounts in this organizational directory only*
-> 4. **Redirect URI: platform `Single-page application (SPA)`** — the exact URL shown in the app's Settings
->    dialog. This must be the SPA platform, not Web.
+> 4. **Redirect URI: platform `Single-page application (SPA)`** — this must be the SPA platform, not Web.
+>    Add `https://dk-centific.github.io/excel-merger/`, plus `http://localhost:8765/` if anyone runs it
+>    locally. Several redirect URIs on one registration is fine.
 > 5. After creating it: **API permissions → Add → Microsoft Graph → Delegated** →
 >    `Files.Read.All` and `Sites.Read.All` → then **Grant admin consent**.
+>    These are *delegated*, so the app can only ever reach files the signed-in user could already open.
 > 6. Send back the **Application (client) ID** and **Directory (tenant) ID**.
 
-Paste those two IDs into the app's Settings dialog. To bake them into the deployment so nobody else has to,
-put them in `config.js` instead — they are not secrets. A public-client registration has no client secret,
-every user still signs in with their own account, and they can only reach files they already have permission
-to open.
+Put the two IDs in **`config.js`** and commit — that bakes the connection into the deployment so nobody else
+has to configure anything. The Settings dialog is a per-browser override, useful for testing a different
+registration without redeploying.
+
+Neither ID is a secret. A public-client registration has no client secret (it uses PKCE), every user still
+signs in with their own account, and choosing *Accounts in this organizational directory only* means accounts
+outside your tenant cannot sign in at all. The app's Settings dialog always displays the exact redirect URI
+for wherever it is currently running, so you can copy it from there if the URL changes.
 
 ---
 
