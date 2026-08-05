@@ -22,19 +22,27 @@ Then open <http://localhost:8765>.
 
 Try it with the files in `sample-files/`, which contain deliberately messy data covering every QA rule.
 
-**Hosted for the team:** see [Deploying](#deploying) below. The repo is private and deliberately **not** on
-GitHub Pages — a Pages site is publicly readable even when its repo is private, which would expose the column
-schema to anyone with the URL.
+**Hosted:** <https://dk-centific.github.io/excel-merger/> — published from `main` via GitHub Pages, open to
+anyone with the link.
 
 ---
 
 ## Deploying
 
-Deploys to **Azure Static Web Apps** with Microsoft 365 sign-in, so only people you allow can load it.
-The Free plan is enough. Pushing to `main` redeploys automatically via
-`.github/workflows/azure-static-web-apps.yml`.
+Live hosting is **GitHub Pages**, served from the root of `main`. Pushing to `main` republishes automatically;
+there is nothing to configure.
 
-### One-time setup
+Note that **GitHub Pages cannot send custom response headers**, so the `Content-Security-Policy` and
+`Cache-Control: no-store` defined in `staticwebapp.config.json` are *not* applied while hosting is Pages. That
+file only takes effect on Azure Static Web Apps.
+
+### Alternative: Azure Static Web Apps with sign-in
+
+Kept as an option if this ever needs to stop being publicly reachable. It puts the app behind Microsoft 365
+sign-in so only invited colleagues can load it, and it activates the security headers above. The workflow at
+`.github/workflows/azure-static-web-apps.yml` is already in place and no-ops until the token secret exists.
+
+#### One-time setup
 
 1. **Azure Portal → Create a resource → Static Web App.**
    - Plan type: **Free**
@@ -58,7 +66,7 @@ The Free plan is enough. Pushing to `main` redeploys automatically via
 Anyone who signs in without that role lands on `403.html` telling them to ask for access, rather than a bare
 Azure error page.
 
-### Tenant-wide access instead of invitations
+#### Tenant-wide access instead of invitations
 
 The Free plan's built-in Entra ID provider is a Microsoft-managed multi-tenant app, so *any* Microsoft account
 can authenticate — the `merger` role is what actually restricts access, and that means inviting people one at
@@ -87,12 +95,13 @@ Then change the `/*` route's `allowedRoles` from `["merger"]` to `["authenticate
 issuer is already doing the restricting. Store `AAD_CLIENT_ID` and `AAD_CLIENT_SECRET` in the Static Web App's
 *Configuration* settings, never in this repo. Custom identity providers require the Standard plan.
 
-### Security headers
+#### Security headers
 
-`staticwebapp.config.json` sends a strict `Content-Security-Policy` limiting network access to Microsoft Graph,
-Entra ID login and SharePoint, plus `no-store` caching so merged participant data is never written to a shared
-cache. If you add a library or a new API, widen the policy there — the app has no inline scripts or styles, and
-keeping it that way is what lets the policy stay strict.
+`staticwebapp.config.json` defines a strict `Content-Security-Policy` limiting network access to Microsoft
+Graph, Entra ID login and SharePoint, plus `no-store` caching so merged participant data is never written to a
+shared cache. **These apply on Azure only** — Pages ignores the file entirely. If you add a library or a new
+API, widen the policy there; the app has no inline scripts or styles, and keeping it that way is what lets the
+policy stay strict.
 
 ---
 
