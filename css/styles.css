@@ -117,9 +117,19 @@ code {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: .5px solid var(--border);
 }
-.nav-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); flex: 0 0 8px; }
-.nav-name { font-size: 15px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
+.nav-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+
+/*
+ * The mark is a solid shape on transparency, so masking it lets the brand colour
+ * come from a CSS variable instead of being baked into the image.
+ */
+.nav-logo {
+  width: 26px; height: 26px;
+  flex: 0 0 26px;
+  background-color: var(--brand);
+  -webkit-mask: url('../assets/centific-mark.png') no-repeat center / contain;
+  mask: url('../assets/centific-mark.png') no-repeat center / contain;
+}
 .nav-sep { color: var(--text3); font-size: 14px; }
 .nav-sub {
   font-family: var(--font-mono);
