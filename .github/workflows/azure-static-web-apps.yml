@@ -31,14 +31,21 @@ jobs:
           api_location: ""
           output_location: ""
           skip_app_build: true
+          # Until the Azure resource exists and its token is added as a repo
+          # secret, skip rather than fail so pushes stay green.
+          skip_deploy_on_missing_secrets: true
 
   teardown:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Remove preview environment
+    # The secrets context cannot be read from an `if`, so surface it as env first.
+    env:
+      SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
     steps:
       - name: Close staging environment
+        if: env.SWA_TOKEN != ''
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
           action: close
