@@ -32,6 +32,12 @@ anyone with the link.
 Live hosting is **GitHub Pages**, served from the root of `main`. Pushing to `main` republishes automatically;
 there is nothing to configure.
 
+**When you change a CSS or JS file, bump the `?v=` on its `<link>`/`<script>` tag in `index.html`.** Pages
+serves assets with `Cache-Control: max-age=600`, so without it a returning visitor can get the new HTML against
+a ten-minute-old stylesheet — which renders as missing or broken styling rather than an obvious error. There is
+no build step to hash filenames automatically, so this one is manual. Keep the number the same across all the
+tags so a single find-and-replace bumps them together.
+
 Note that **GitHub Pages cannot send custom response headers**, so the `Content-Security-Policy` and
 `Cache-Control: no-store` defined in `staticwebapp.config.json` are *not* applied while hosting is Pages. That
 file only takes effect on Azure Static Web Apps.
