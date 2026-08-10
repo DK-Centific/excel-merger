@@ -127,8 +127,8 @@ code {
   width: 26px; height: 26px;
   flex: 0 0 26px;
   background-color: var(--brand);
-  -webkit-mask: url('../assets/centific-mark.png?v=7') no-repeat center / contain;
-  mask: url('../assets/centific-mark.png?v=7') no-repeat center / contain;
+  -webkit-mask: url('../assets/centific-mark.png?v=8') no-repeat center / contain;
+  mask: url('../assets/centific-mark.png?v=8') no-repeat center / contain;
 }
 .nav-sep { color: var(--text3); font-size: 14px; }
 .nav-sub {
@@ -970,6 +970,20 @@ tr.is-missing td { background: var(--red-bg); }
 @media (max-width: 760px) {
   .modes { margin-left: 0; }
   .modes .chip { padding: 6px 9px; font-size: 12px; }
+}
+
+.opt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  border: .5px solid var(--border-strong);
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-weight: 400;
 }
 
 .spaced-top { margin-top: 16px; }

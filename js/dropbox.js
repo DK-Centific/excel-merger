@@ -25,6 +25,9 @@
   const SCOPES = [
     'account_info.read',
     'files.metadata.read',
+    // Needed to read the agency metadata workbooks themselves. Only .xlsx files are ever
+    // downloaded; videos and consent PDFs are linked, never fetched.
+    'files.content.read',
     'sharing.read',
     'sharing.write',
   ];
@@ -32,6 +35,7 @@
   const AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
   const TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token';
   const API = 'https://api.dropboxapi.com/2';
+  const CONTENT = 'https://content.dropboxapi.com/2';
 
   const STORE_KEY = 'merger.dropbox.appKey';
   const VERIFIER_KEY = 'merger.dropbox.verifier';
@@ -373,6 +377,38 @@
     return { folders: folders, files: files };
   }
 
+  /*
+   * Fetch a file's bytes. Used only for the metadata workbooks — the media and consent
+   * files are linked, never downloaded, so participant video never touches this browser.
+   */
+  async function downloadFile(path) {
+    if (!token) throw new Error('Not signed in to Dropbox.');
+
+    const headers = {
+      Authorization: 'Bearer ' + token,
+      'Dropbox-API-Arg': JSON.stringify({ path: path }),
+    };
+    if (pathRoot) headers['Dropbox-API-Path-Root'] = pathRoot;
+
+    const response = await fetch(CONTENT + '/files/download', { method: 'POST', headers: headers });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const missing = /"required_scope":\s*"([^"]+)"/.exec(text);
+      if (missing) {
+        signOut();
+        const error = new Error(
+          'Dropbox is missing the "' + missing[1] + '" permission. Add it on the app\'s ' +
+          'Permissions tab, click Submit, then connect again.'
+        );
+        error.missingScope = missing[1];
+        throw error;
+      }
+      throw new Error('Could not download ' + path + ' (' + response.status + ').');
+    }
+    return response.arrayBuffer();
+  }
+
   /* Read-only. Returns the existing link for a path, or '' when there is none. */
   async function existingSharedLink(path) {
     const result = await rpc('/sharing/list_shared_links', { path: path, direct_only: true });
@@ -427,6 +463,7 @@
     takeResumeState: takeResumeState,
     listFolderRecursive: listFolderRecursive,
     listFolderChildren: listFolderChildren,
+    downloadFile: downloadFile,
     existingSharedLink: existingSharedLink,
     createSharedLink: createSharedLink,
     resolveExistingLinks: resolveExistingLinks,

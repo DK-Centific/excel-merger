@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merge — Agency Excel Consolidator</title>
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=7">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=7">
-<link rel="stylesheet" href="css/styles.css?v=7">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=8">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=8">
+<link rel="stylesheet" href="css/styles.css?v=8">
 </head>
 <body>
 
@@ -250,49 +250,6 @@
   <section class="card">
     <div class="card-head">
       <span class="step">1</span>
-      <h2>Load the merged sheet</h2>
-    </div>
-    <p class="hint">The wide Centaurus sheet where F–AB are already populated — not the 21-column merge output.
-      Use the same upload or SharePoint tabs as the merger.</p>
-
-    <div class="tabs" role="tablist">
-      <button type="button" class="tab is-active" role="tab" data-lftab="upload" aria-selected="true">Upload file</button>
-      <button type="button" class="tab" role="tab" data-lftab="sharepoint" aria-selected="false">SharePoint link</button>
-    </div>
-
-    <div class="tab-panel is-active" data-lfpanel="upload">
-      <div id="lf-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose the merged Excel file">
-        <svg class="ico dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
-        </svg>
-        <p class="dropzone-title">Drop the merged .xlsx here</p>
-        <p class="dropzone-sub">or click to browse</p>
-      </div>
-      <input type="file" id="lf-file-input" accept=".xlsx,.xlsm" hidden>
-    </div>
-
-    <div class="tab-panel" data-lfpanel="sharepoint">
-      <p class="hint">Uses the same Microsoft 365 sign-in as the merger's SharePoint tab.</p>
-      <label class="label" for="lf-sp-url">SharePoint link to the merged workbook</label>
-      <textarea id="lf-sp-url" rows="2" spellcheck="false"
-        placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Centaurus_v2.xlsx"></textarea>
-      <button type="button" id="lf-sp-fetch" class="btn btn-secondary spaced-top">Fetch sheet</button>
-    </div>
-
-    <div id="lf-sheet-info" class="hidden">
-      <div class="list-head">
-        <h3>Sheet loaded</h3>
-        <button type="button" id="lf-clear-sheet" class="linklike">Remove</button>
-      </div>
-      <ul class="file-list"><li id="lf-sheet-row"></li></ul>
-      <label class="label spaced-top" for="lf-sheet-select">Worksheet</label>
-      <select id="lf-sheet-select"></select>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <span class="step">2</span>
       <h2>Choose source folders</h2>
     </div>
 
@@ -367,10 +324,65 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="step">3</span>
-      <h2>Scan and match</h2>
+      <span class="step">2</span>
+      <h2>Override the merged sheet <span class="opt">optional</span></h2>
     </div>
-    <button type="button" id="lf-scan" class="btn btn-primary btn-lg" disabled>Scan &amp; match files</button>
+    <p class="hint">Leave this empty and the sheet is built from the workbooks found in the folders above. Supply one
+      only to merge into an existing delivery sheet instead of discovering it.</p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab is-active" role="tab" data-lftab="upload" aria-selected="true">Upload file</button>
+      <button type="button" class="tab" role="tab" data-lftab="sharepoint" aria-selected="false">SharePoint link</button>
+    </div>
+
+    <div class="tab-panel is-active" data-lfpanel="upload">
+      <div id="lf-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose the merged Excel file">
+        <svg class="ico dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
+        </svg>
+        <p class="dropzone-title">Drop the merged .xlsx here</p>
+        <p class="dropzone-sub">or click to browse</p>
+      </div>
+      <input type="file" id="lf-file-input" accept=".xlsx,.xlsm" hidden>
+    </div>
+
+    <div class="tab-panel" data-lfpanel="sharepoint">
+      <p class="hint">Uses the same Microsoft 365 sign-in as the merger's SharePoint tab.</p>
+      <label class="label" for="lf-sp-url">SharePoint link to the merged workbook</label>
+      <textarea id="lf-sp-url" rows="2" spellcheck="false"
+        placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Centaurus_v2.xlsx"></textarea>
+      <button type="button" id="lf-sp-fetch" class="btn btn-secondary spaced-top">Fetch sheet</button>
+    </div>
+
+    <div id="lf-sheet-info" class="hidden">
+      <div class="list-head">
+        <h3>Sheet loaded</h3>
+        <button type="button" id="lf-clear-sheet" class="linklike">Remove</button>
+      </div>
+      <ul class="file-list"><li id="lf-sheet-row"></li></ul>
+      <label class="label spaced-top" for="lf-sheet-select">Worksheet</label>
+      <select id="lf-sheet-select"></select>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">3</span>
+      <h2>Merge, check and map links</h2>
+    </div>
+
+    <div class="option-row">
+      <div class="option-text">
+        <label for="lf-date-order">Ambiguous dates like <code>05/06/1990</code></label>
+        <p class="hint">When day and month are both 12 or lower there is no way to tell them apart.
+          Every affected row is flagged either way.</p>
+      </div>
+      <select id="lf-date-order">
+        <option value="day">Day first — DD/MM/YYYY</option>
+        <option value="month">Month first — MM/DD/YYYY</option>
+      </select>
+    </div>
+    <button type="button" id="lf-scan" class="btn btn-primary btn-lg" disabled>Merge and map links</button>
     <div id="lf-progress" class="progress hidden"><span class="spinner"></span><span id="lf-progress-text">Working…</span></div>
     <div id="lf-error" class="notice notice-error hidden spaced-top"></div>
   </section>
@@ -478,17 +490,18 @@
 </div>
 
 <!-- ?v= busts the 10-minute GitHub Pages cache. Bump it when any of these change. -->
-<script src="vendor/exceljs.min.js?v=7"></script>
-<script src="vendor/fflate.min.js?v=7"></script>
-<script src="vendor/msal-browser.min.js?v=7"></script>
-<script src="config.js?v=7"></script>
-<script src="js/xlsxsanitize.js?v=7"></script>
-<script src="js/core.js?v=7"></script>
-<script src="js/metadata.js?v=7"></script>
-<script src="js/linkfiller.js?v=7"></script>
-<script src="js/sharepoint.js?v=7"></script>
-<script src="js/dropbox.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
-<script src="js/linkfillerui.js?v=7"></script>
+<script src="vendor/exceljs.min.js?v=8"></script>
+<script src="vendor/fflate.min.js?v=8"></script>
+<script src="vendor/msal-browser.min.js?v=8"></script>
+<script src="config.js?v=8"></script>
+<script src="js/xlsxsanitize.js?v=8"></script>
+<script src="js/core.js?v=8"></script>
+<script src="js/metadata.js?v=8"></script>
+<script src="js/linkfiller.js?v=8"></script>
+<script src="js/deliverymerge.js?v=8"></script>
+<script src="js/sharepoint.js?v=8"></script>
+<script src="js/dropbox.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
+<script src="js/linkfillerui.js?v=8"></script>
 </body>
 </html>

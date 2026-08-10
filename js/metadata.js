@@ -296,6 +296,29 @@
       });
     }
 
+    /*
+     * QA lives here, at the end of the workbook — never in columns B and C, which stay
+     * exactly as the client's layout expects them.
+     */
+    if (opts.qa && opts.qa.length) {
+      const qa = workbook.addWorksheet('QA Report');
+      qa.addRow(['Severity', 'Source file', 'Row', 'Col', 'Header', 'Check', 'Original', 'Corrected', 'Details']);
+      qa.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      qa.getRow(1).fill = HEADER_FILL;
+      opts.qa.forEach(function (item) {
+        qa.addRow([
+          (item.severity || '').toUpperCase(), item.source || '', item.row || '',
+          item.column || '', item.header || '', item.rule || '',
+          item.original || '', item.corrected || '', item.message || '',
+        ]);
+      });
+      [12, 30, 7, 6, 22, 30, 24, 24, 60].forEach(function (width, i) {
+        qa.getColumn(i + 1).width = width;
+      });
+      qa.views = [{ state: 'frozen', ySplit: 1 }];
+      qa.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
+    }
+
     /* The client's file carries this reference sheet; keep it so the output matches. */
     const reference = workbook.addWorksheet('Head_Attributes');
     const groups = GROUP_KEYS.map(function (key) { return CORE.ATTRIBUTE_VOCABULARY[key] || []; });

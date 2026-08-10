@@ -269,10 +269,17 @@
 
     files.forEach(function (file) {
       const path = file.path_display || file.path_lower || file.name;
-      let folder = '';
-      for (let i = 0; i < roots.length; i++) {
-        const candidate = participantFolderOf(path, roots[i]);
-        if (candidate) { folder = candidate; break; }
+
+      /*
+       * A caller that already knows whose file this is wins — that is how flat media, where
+       * the participant is only identifiable from the filename, gets attributed.
+       */
+      let folder = file.participantFolder || '';
+      if (!folder) {
+        for (let i = 0; i < roots.length; i++) {
+          const candidate = participantFolderOf(path, roots[i]);
+          if (candidate) { folder = candidate; break; }
+        }
       }
       if (!folder) folder = participantFolderOf(path, '');
       if (!folder) return;
@@ -290,6 +297,8 @@
         path: path,
         link: file.link ? normalizeSharedLink(file.link) : '',
         linkExisted: !!file.link,
+        // Carried through so the caller can date a row from the media it matched.
+        recordedAt: file.recordedAt || file.server_modified || null,
       };
 
       if (kind === 'video') {

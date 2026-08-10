@@ -9,6 +9,8 @@
 
   const LF = global.LinkFiller;
   const DBX = global.DropboxSource;
+  const DM = global.DeliveryMerge;
+  const META = global.MetadataMerge;
   const MAX_TABLE_ROWS = 300;
 
   const state = {
@@ -16,6 +18,9 @@
     fileName: '',
     sheetName: '',
     plan: null,
+    rows: [],
+    issues: [],
+    workbookCount: 0,
     scannedFiles: [],
     browsePath: null,
     browseChildren: [],
@@ -417,38 +422,121 @@
       ? state.fileName + ' › ' + state.sheetName
       : '—';
 
-    $('lf-scan').disabled = !(state.workbook && connected && validRoots().length > 0);
+    // The merged sheet is derived from the folders; supplying one is an override, not a step.
+    $('lf-scan').disabled = !(connected && validRoots().length > 0);
   }
 
   /* ---------- scan ---------- */
 
+  /* The folder that a file sits in, relative to whichever root contains it. */
+  function folderOf(path, roots) {
+    for (let i = 0; i < roots.length; i++) {
+      const root = String(roots[i] || '').replace(/\/+$/, '');
+      if (root && String(path).toLowerCase().indexOf(root.toLowerCase() + '/') === 0) {
+        const rest = String(path).slice(root.length + 1).split('/').filter(Boolean);
+        return rest.length > 1 ? rest[0] : '';
+      }
+    }
+    return '';
+  }
+
+  /*
+   * Folders in, delivery sheet out. Merge every workbook found, QA the result, then map the
+   * Dropbox links onto it. Nothing is created in Dropbox here — link creation is a separate,
+   * confirmed step.
+   */
   async function scan() {
     clearError();
-    if (!state.workbook) { showError('Load the merged sheet first.'); return; }
 
     const roots = validRoots();
+    if (!roots.length) { showError('Choose at least one folder first.'); return; }
+
     const config = LF.AGENCY_PRESETS[$('lf-agency').value] || LF.AGENCY_PRESETS.Powerling;
+    const dayFirst = ($('lf-date-order') || {}).value !== 'month';
 
     try {
       setBusy('Listing files…');
       let files = [];
       for (let i = 0; i < roots.length; i++) {
-        setBusy('Listing ' + roots[i] + '…');
         const found = await DBX.listFolderRecursive(roots[i], function (count) {
           setBusy('Listing ' + roots[i] + ' — ' + count + ' files…');
         });
         files = files.concat(found);
       }
 
-      // Read-only pass. Nothing is created here; that needs an explicit confirmation.
+      // ---- 1. merge every workbook found ----
+      const workbooks = files.filter(DM.isMetadataWorkbook);
+      const media = files.filter(function (file) { return !DM.isMetadataWorkbook(file); });
+
+      let rows = [];
+      const readIssues = [];
+
+      if (state.workbook) {
+        // An explicitly supplied sheet overrides discovery.
+        const sheet = readSheetRows();
+        rows = sheet.rows.map(function (row) {
+          return { values: row.values, source: state.fileName };
+        });
+      } else {
+        if (!workbooks.length) {
+          throw new Error('No Excel files were found in the selected folders, so there is nothing to merge.');
+        }
+        for (let i = 0; i < workbooks.length; i++) {
+          const book = workbooks[i];
+          setBusy('Reading ' + book.name + ' (' + (i + 1) + ' of ' + workbooks.length + ')…');
+          try {
+            const buffer = await DBX.downloadFile(book.path_display || book.path_lower);
+            const loaded = await global.XlsxSanitize.loadWorkbook(buffer);
+            const folder = folderOf(book.path_display || book.name, roots);
+            const read = global.MetadataMerge.readMetadataWorkbook(loaded.workbook, folder);
+            if (!read.ok) {
+              readIssues.push({ severity: 'error', source: book.name, rule: 'Workbook skipped',
+                message: read.reason, original: '', corrected: '', column: '', header: '', row: null });
+              continue;
+            }
+            read.rows.forEach(function (row) {
+              rows.push({ values: row.values, source: book.name });
+            });
+          } catch (err) {
+            if (err && err.missingScope) throw err;
+            readIssues.push({ severity: 'error', source: book.name, rule: 'Workbook could not be read',
+              message: err && err.message ? err.message : String(err),
+              original: '', corrected: '', column: '', header: '', row: null });
+          }
+        }
+        if (!rows.length) {
+          throw new Error('Found ' + workbooks.length + ' Excel file(s) but none had recognisable metadata headers.');
+        }
+      }
+
+      // ---- 2. QA the merged rows ----
+      setBusy('Checking ' + rows.length + ' rows…');
+      const qaIssues = DM.runQa(rows, { dayFirst: dayFirst });
+
+      // ---- 3. map the Dropbox links ----
+      const knownKeys = rows.map(function (row) { return LF.normalizeName(row.values[LF.COL.NAME]); })
+        .filter(Boolean);
+      media.forEach(function (file) {
+        const keys = DM.participantKeysForFile(file, roots, knownKeys);
+        if (keys.length) file.participantFolder = keys[0];
+        file.recordedAt = file.server_modified || null;
+      });
+
       setBusy('Checking existing shared links…');
-      await DBX.resolveExistingLinks(files, function (done, total) {
+      await DBX.resolveExistingLinks(media, function (done, total) {
         setBusy('Checking existing shared links — ' + done + ' of ' + total + '…');
       });
 
-      const sheet = readSheetRows();
-      state.scannedFiles = files;
-      state.plan = LF.planFill({ rows: sheet.rows }, files, { config: config, roots: roots });
+      const planRows = rows.map(function (row, index) {
+        return { excelRow: index + 2, values: row.values };
+      });
+      const plan = LF.planFill({ rows: planRows }, media, { config: config, roots: roots });
+
+      state.rows = rows;
+      state.scannedFiles = media;
+      state.plan = plan;
+      state.issues = readIssues.concat(qaIssues);
+      state.workbookCount = workbooks.length;
 
       setBusy('');
       renderResults();
@@ -519,10 +607,17 @@
 
     const stats = $('lf-stats');
     stats.textContent = '';
-    addStat(stats, metrics.rowsFilled, 'Rows ready to write', 'fixed');
-    addStat(stats, metrics.rowsAwaitingLink, 'Rows waiting on a link');
-    addStat(stats, metrics.linksResolved, metrics.linksReused + ' reused · ' + metrics.linksToCreate + ' to create');
-    addStat(stats, metrics.rowsReview + metrics.rowsMissing, 'Rows need review', 'review');
+    const issues = state.issues || [];
+    const autoFixed = issues.filter(function (i) { return i.severity === 'fixed'; }).length;
+    const needsHuman = issues.filter(function (i) { return i.severity !== 'fixed'; }).length
+      + metrics.rowsReview + metrics.rowsMissing;
+
+    addStat(stats, state.rows.length,
+      'Rows merged' + (state.workbookCount ? ' from ' + state.workbookCount + ' file(s)' : ''));
+    addStat(stats, autoFixed, 'QA auto-fixes', 'fixed');
+    addStat(stats, metrics.linksResolved,
+      metrics.linksReused + ' reused · ' + metrics.linksToCreate + ' to create');
+    addStat(stats, needsHuman, 'Need a human', 'review');
 
     const body = $('lf-body');
     body.textContent = '';
@@ -704,23 +799,66 @@
 
   /* ---------- download ---------- */
 
+  /*
+   * Fold the resolved links into the merged rows. Only links that actually exist are
+   * written — an unresolved one would blank the cell rather than leave it for the
+   * create step.
+   */
+  function applyLinksToRows() {
+    let written = 0;
+    state.plan.rows.forEach(function (planRow, index) {
+      const values = (state.rows[index] || {}).values;
+      if (!values) return;
+
+      if (planRow.video && planRow.video.link) { values[META.OUT.VIDEO_URL] = planRow.video.link; written++; }
+      if (planRow.icf && planRow.icf.link) values[META.OUT.ICF_URL] = planRow.icf.link;
+      if (planRow.assent && planRow.assent.link) values[META.OUT.ASSENT_URL] = planRow.assent.link;
+
+      // Column Z comes from the video's Dropbox timestamp when the sheet did not supply one.
+      const stamp = planRow.video && planRow.video.recordedAt;
+      if (stamp && !values[META.OUT.RECORDED]) values[META.OUT.RECORDED] = new Date(stamp);
+    });
+    return written;
+  }
+
+  /* Amber the cells a human still needs to look at, mirroring the merger's convention. */
+  function highlightsFor() {
+    const marks = [];
+    (state.issues || []).forEach(function (item) {
+      if (item.severity !== 'review' || !item.row || !item.header) return;
+      const column = META.OUTPUT_HEADERS.indexOf(item.header);
+      if (column < 0) return;
+      marks.push({ row: item.row, column: column + 1, note: item.rule + ': ' + item.message });
+    });
+    state.plan.rows.forEach(function (planRow) {
+      if (planRow.status === 'filled' || planRow.status === 'awaiting-link') return;
+      if (!planRow.problems.length) return;
+      marks.push({ row: planRow.excelRow, column: META.OUT.VIDEO_URL + 1,
+        note: planRow.problems.join(' ') });
+    });
+    return marks;
+  }
+
   async function download() {
     clearError();
     if (!state.plan) return;
 
     try {
-      setBusy('Writing links…');
-      const worksheet = state.workbook.getWorksheet(state.sheetName);
-      const written = LF.applyPlan(worksheet, state.plan);
+      setBusy('Building the delivery sheet…');
+      const written = applyLinksToRows();
 
-      const buffer = await state.workbook.xlsx.writeBuffer();
+      const workbook = META.buildDeliveryWorkbook(state.rows, {
+        qa: state.issues,
+        highlight: highlightsFor(),
+      });
+      const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = state.fileName.replace(/\.xlsx?$/i, '') + '_linked.xlsx';
+      anchor.download = 'Result_Merged.xlsx';
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -728,16 +866,10 @@
 
       setBusy('');
       const metrics = state.plan.metrics;
-      const notes = [];
       if (metrics.rowsAwaitingLink) {
-        notes.push(metrics.rowsAwaitingLink + ' matched cleanly but have no shared link yet — use ' +
-          '"Create missing links" first, then download again.');
-      }
-      if (metrics.rowsReview + metrics.rowsMissing) {
-        notes.push((metrics.rowsReview + metrics.rowsMissing) + ' are held for review — fix those and re-run.');
-      }
-      if (notes.length) {
-        showError(written + ' row' + (written === 1 ? '' : 's') + ' written. ' + notes.join(' '));
+        showError('Exported all ' + state.rows.length + ' rows with ' + written + ' video link' +
+          (written === 1 ? '' : 's') + '. ' + metrics.rowsAwaitingLink +
+          ' row(s) matched a file that has no shared link yet — use "Create missing links", then export again.');
       }
     } catch (err) {
       setBusy('');
@@ -748,7 +880,18 @@
   /* ---------- init ---------- */
 
   function init() {
-    if (!LF || !DBX || !$('view-linkfiller')) return;
+    // Fail loudly rather than leaving a dead button if a module did not load.
+    const missing = [];
+    if (!LF) missing.push('LinkFiller');
+    if (!DBX) missing.push('DropboxSource');
+    if (!DM) missing.push('DeliveryMerge');
+    if (!META) missing.push('MetadataMerge');
+    if (!global.XlsxSanitize) missing.push('XlsxSanitize');
+    if (!$('view-linkfiller')) return;
+    if (missing.length) {
+      showError('Link filler could not start — these scripts did not load: ' + missing.join(', ') + '.');
+      return;
+    }
 
     document.querySelectorAll('.modes .chip').forEach(function (chip) {
       chip.addEventListener('click', function () { setMode(chip.dataset.mode); });
