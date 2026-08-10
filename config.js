@@ -18,6 +18,10 @@ window.MERGER_CONFIG = {
 
   dropboxAppKey: 'vgmp1z3692hv0rc',
 
-  // Where "Browse Dropbox" opens. Everything below this is selectable.
-  dropboxBrowseRoot: '/Centific Team Folder/Agency Collection',
+  /*
+   * Where "Browse Dropbox" always opens. Everything below it is selectable, and the browser
+   * will not navigate above it. Either a Dropbox web URL or a plain path works — the URL is
+   * decoded and its /home prefix stripped automatically.
+   */
+  dropboxBrowseRoot: 'https://www.dropbox.com/home/Centific%20Team%20Folder/Agency%20Collection',
 };

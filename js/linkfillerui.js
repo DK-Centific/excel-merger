@@ -20,6 +20,8 @@
     browsePath: null,
     browseChildren: [],
     browseSelection: [],
+    browseLoaded: false,
+    browseLoading: false,
   };
 
   function $(id) { return document.getElementById(id); }
@@ -194,8 +196,15 @@
 
   /* ---------- folder browser ---------- */
 
+  /*
+   * Accepts either a plain path or a Dropbox web URL, so the value in config.js can be
+   * pasted straight from the browser address bar.
+   */
   function browseRoot() {
     const configured = (global.MERGER_CONFIG && global.MERGER_CONFIG.dropboxBrowseRoot) || '';
+    if (!configured) return '';
+    const parsed = LF.parseFolderUrl(configured);
+    if (parsed && parsed.ok) return parsed.path;
     return String(configured).replace(/\/+$/, '');
   }
 
@@ -342,14 +351,32 @@
     try {
       const result = await DBX.listFolderChildren(state.browsePath);
       state.browseChildren = result.folders;
+      state.browseLoaded = true;
       renderNodes();
     } catch (err) {
+      // Leave browseLoaded false so re-entering the tab retries rather than showing
+      // a stale error forever — the usual cause is a permission the user has just fixed.
       state.browseChildren = [];
+      state.browseLoaded = false;
       box.textContent = '';
+
       const failed = document.createElement('div');
       failed.className = 'node-empty';
       failed.textContent = err && err.message ? err.message : String(err);
       box.appendChild(failed);
+
+      if (err && err.missingScope) {
+        const retry = document.createElement('div');
+        retry.className = 'node-empty';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-secondary';
+        button.textContent = 'Connect Dropbox again';
+        button.addEventListener('click', function () { $('lf-connect').click(); });
+        retry.appendChild(button);
+        box.appendChild(retry);
+        refresh();
+      }
     }
     renderSelectionBar();
   }
@@ -380,8 +407,9 @@
     $('lf-urls').disabled = !connected;
 
     // Connecting while Browse is open should populate the tree without another click.
-    if (connected && activeSourceTab() === 'browse' && state.browsePath === null) {
-      browseTo(browseRoot());
+    if (connected && activeSourceTab() === 'browse' && !state.browseLoaded && !state.browseLoading) {
+      state.browseLoading = true;
+      browseTo(browseRoot()).then(function () { state.browseLoading = false; });
     }
     renderSelectionBar();
 
@@ -727,8 +755,8 @@
     });
     bindTabs('lftab', 'lfpanel');
     bindTabs('srctab', 'srcpanel', function (name) {
-      // Load the tree the first time Browse is opened, not on every switch.
-      if (name === 'browse' && DBX.getAccount() && state.browsePath === null) browseTo(browseRoot());
+      // Always open at the configured root, and retry if the last attempt failed.
+      if (name === 'browse' && DBX.getAccount() && !state.browseLoaded) browseTo(browseRoot());
       refresh();
     });
 

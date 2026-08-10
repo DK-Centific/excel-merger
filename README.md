@@ -364,9 +364,26 @@ token is dropped because it expires and isn't reproducible.
 ### Dropbox setup
 
 Needs a one-time Dropbox app, same pattern as the Azure one — add its **App key** under Settings or in
-`config.js`. Create the app at <https://www.dropbox.com/developers/apps> with scopes
-`files.metadata.read`, `sharing.read` and `sharing.write`, and add the redirect URI shown in Settings. It is a
-public client using PKCE, so there is **no app secret**.
+`config.js`. Create the app at <https://www.dropbox.com/developers/apps>, choose **Scoped access → Full
+Dropbox**, and add the redirect URI shown in Settings. It is a public client using PKCE, so there is **no app
+secret**.
+
+On the **Permissions** tab tick all four, then click **Submit**:
+
+| Scope | Used by |
+|---|---|
+| `account_info.read` | `users/get_current_account` — the connection check, and `root_info` for addressing team folders |
+| `files.metadata.read` | `files/list_folder` — browsing and enumerating |
+| `sharing.read` | `sharing/list_shared_links` — reusing links that already exist |
+| `sharing.write` | `sharing/create_shared_link_with_settings` — only after you confirm |
+
+⚠️ **A permission added after you connect does not apply to an existing sign-in.** An access token carries the
+scopes it was issued with, and refreshing it does not upgrade them. If calls fail with
+`missing_scope`, tick the permission, Submit, then **disconnect and connect again**. The app detects this
+error, clears the stale token for you and offers a reconnect button.
+
+`Browse Dropbox` always opens at `dropboxBrowseRoot` in `config.js` and will not navigate above it. That value
+accepts either a plain path or a Dropbox web URL, so it can be pasted straight from the address bar.
 
 **Each person signs in with their own Dropbox account, once per device.** The tool requests an offline refresh
 token, so after the first connect it stays connected — no repeated sign-ins. There is deliberately no shared

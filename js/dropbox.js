@@ -12,6 +12,23 @@
 (function (global) {
   'use strict';
 
+  /*
+   * Requested explicitly rather than relying on "whatever the app has selected". Being
+   * explicit means a token can never come back quietly missing a scope, and it documents
+   * exactly what this tool needs:
+   *   account_info.read   users/get_current_account — the connection check and, on a
+   *                       Business team, root_info for addressing team folders
+   *   files.metadata.read files/list_folder — browsing and enumerating
+   *   sharing.read        sharing/list_shared_links — reusing existing links
+   *   sharing.write       sharing/create_shared_link_with_settings — only on confirm
+   */
+  const SCOPES = [
+    'account_info.read',
+    'files.metadata.read',
+    'sharing.read',
+    'sharing.write',
+  ];
+
   const AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
   const TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token';
   const API = 'https://api.dropboxapi.com/2';
@@ -90,6 +107,7 @@
       code_challenge: await challengeFor(verifier),
       code_challenge_method: 'S256',
       redirect_uri: redirectUri(),
+      scope: SCOPES.join(' '),
       // offline returns a refresh token, so each person signs in once per device
       // rather than once per session.
       token_access_type: 'offline',
@@ -268,6 +286,24 @@
     }
     if (!response.ok) {
       const text = await response.text();
+
+      /*
+       * A token carries the scopes it was issued with. Adding a permission to the Dropbox
+       * app does not upgrade tokens already granted, so the stored one has to go or the
+       * user would keep hitting this with no way out.
+       */
+      const missing = /"required_scope":\s*"([^"]+)"/.exec(text);
+      if (missing) {
+        signOut();
+        const error = new Error(
+          'Dropbox is missing the "' + missing[1] + '" permission. Add it on the app\'s ' +
+          'Permissions tab, click Submit, then connect again — a permission added after you ' +
+          'connected does not apply to an existing sign-in.'
+        );
+        error.missingScope = missing[1];
+        throw error;
+      }
+
       throw new Error('Dropbox ' + endpoint + ' failed (' + response.status + '): ' + text.slice(0, 200));
     }
     return response.json();
