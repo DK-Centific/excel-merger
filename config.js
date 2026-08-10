@@ -1,18 +1,23 @@
 /*
- * Optional SharePoint connection defaults.
+ * Connection defaults, baked into the deployment so the team does not have to configure
+ * anything. Anything entered under Settings in the app overrides these, for that browser only.
  *
- * Leave clientId blank to run the app in upload-only mode - everything except the
- * "SharePoint links" tab works without any Azure setup at all.
+ * None of these are secrets:
+ *  - A public-client Azure registration has no client secret.
+ *  - A Dropbox PKCE app key is public by design; the app *secret* is never used and must
+ *    never be put here.
+ * Every user still signs in with their own account and can only reach what they could
+ * already open.
  *
- * Filling this in bakes the connection into the deployment so your team does not
- * have to enter it themselves. Anything entered under Settings in the app overrides
- * these values for that browser only.
- *
- * These are not secrets. A public-client app registration has no client secret, and
- * every user still has to sign in with their own Microsoft 365 account and can only
- * reach files they already have permission to open.
+ * Leave clientId blank to run in upload-only mode; leave dropboxAppKey blank to hide the
+ * link filler's Dropbox connection.
  */
 window.MERGER_CONFIG = {
   clientId: '',
   tenantId: 'common',
+
+  dropboxAppKey: 'vgmp1z3692hv0rc',
+
+  // Where "Browse Dropbox" opens. Everything below this is selectable.
+  dropboxBrowseRoot: '/Centific Team Folder/Agency Collection',
 };

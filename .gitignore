@@ -6,3 +6,6 @@ node_modules/
 Merged_Delivery_*.xlsx
 QA_Report_*.xlsx
 ~$*.xlsx
+
+# Local fixtures with real participant data — never commit
+_local/
