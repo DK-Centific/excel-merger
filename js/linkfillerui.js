@@ -17,6 +17,9 @@
     sheetName: '',
     plan: null,
     scannedFiles: [],
+    browsePath: null,
+    browseChildren: [],
+    browseSelection: [],
   };
 
   function $(id) { return document.getElementById(id); }
@@ -34,6 +37,7 @@
   }
 
   const ICON_TICK = 'M5 13l4 4L19 7';
+  const ICON_FOLDER = 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z';
 
   function showError(message) {
     const box = $('lf-error');
@@ -62,7 +66,7 @@
     $('view-linkfiller').classList.toggle('hidden', mode !== 'linkfiller');
   }
 
-  function bindTabs(tabAttr, panelAttr) {
+  function bindTabs(tabAttr, panelAttr, onChange) {
     document.querySelectorAll('[data-' + tabAttr + ']').forEach(function (tab) {
       tab.addEventListener('click', function () {
         const name = tab.dataset[tabAttr];
@@ -74,6 +78,7 @@
         document.querySelectorAll('[data-' + panelAttr + ']').forEach(function (panel) {
           panel.classList.toggle('is-active', panel.dataset[panelAttr] === name);
         });
+        if (onChange) onChange(name);
       });
     });
   }
@@ -174,10 +179,179 @@
     return parsed;
   }
 
+  function activeSourceTab() {
+    const active = document.querySelector('[data-srctab].is-active');
+    return active ? active.dataset.srctab : 'paste';
+  }
+
+  /* Whichever source tab is showing is the one that feeds the scan. */
   function validRoots() {
+    if (activeSourceTab() === 'browse') return state.browseSelection.slice();
     return LF.parseFolderUrls($('lf-urls').value)
       .filter(function (entry) { return entry.ok; })
       .map(function (entry) { return entry.path; });
+  }
+
+  /* ---------- folder browser ---------- */
+
+  function browseRoot() {
+    const configured = (global.MERGER_CONFIG && global.MERGER_CONFIG.dropboxBrowseRoot) || '';
+    return String(configured).replace(/\/+$/, '');
+  }
+
+  function segmentsOf(path) {
+    return String(path || '').split('/').filter(Boolean);
+  }
+
+  function renderCrumbs() {
+    const box = $('lf-crumbs');
+    box.textContent = '';
+
+    const root = browseRoot();
+    const rootSegs = segmentsOf(root);
+    const curSegs = segmentsOf(state.browsePath);
+    // Never offer a way above the configured root.
+    const extra = curSegs.slice(rootSegs.length);
+
+    const crumbs = [{ label: rootSegs[rootSegs.length - 1] || 'Dropbox', path: root }];
+    extra.forEach(function (segment, i) {
+      crumbs.push({ label: segment, path: root + '/' + extra.slice(0, i + 1).join('/') });
+    });
+
+    crumbs.forEach(function (crumb, i) {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'crumb-sep';
+        sep.textContent = '›';
+        box.appendChild(sep);
+      }
+      const last = i === crumbs.length - 1;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'crumb' + (last ? ' is-current' : '');
+      button.textContent = crumb.label;
+      if (last) {
+        button.setAttribute('aria-current', 'true');
+      } else {
+        button.addEventListener('click', function () { browseTo(crumb.path); });
+      }
+      box.appendChild(button);
+    });
+  }
+
+  function isSelected(path) {
+    return state.browseSelection.indexOf(path) !== -1;
+  }
+
+  function toggleSelection(path) {
+    const at = state.browseSelection.indexOf(path);
+    if (at === -1) state.browseSelection.push(path);
+    else state.browseSelection.splice(at, 1);
+    renderNodes();
+    renderSelectionBar();
+    refresh();
+  }
+
+  function renderSelectionBar() {
+    const count = state.browseSelection.length;
+    const sum = $('lf-selcount');
+    sum.textContent = '';
+    if (!count) {
+      sum.textContent = 'No folders selected';
+    } else {
+      const strong = document.createElement('b');
+      strong.textContent = String(count);
+      sum.appendChild(strong);
+      sum.appendChild(document.createTextNode(
+        ' folder' + (count === 1 ? '' : 's') + ' selected — scanned recursively'));
+    }
+    $('lf-clear-sel').classList.toggle('hidden', count === 0);
+    $('lf-use-selected').disabled = count === 0;
+  }
+
+  function renderNodes() {
+    const box = $('lf-nodes');
+    box.textContent = '';
+
+    if (!state.browseChildren.length) {
+      const empty = document.createElement('div');
+      empty.className = 'node-empty';
+      empty.textContent = 'No subfolders here.';
+      box.appendChild(empty);
+      return;
+    }
+
+    state.browseChildren.forEach(function (folder) {
+      const selected = isSelected(folder.path);
+
+      const node = document.createElement('div');
+      node.className = 'node' + (selected ? ' is-selected' : '');
+      node.tabIndex = 0;
+      node.setAttribute('role', 'checkbox');
+      node.setAttribute('aria-checked', selected ? 'true' : 'false');
+      node.setAttribute('aria-label', folder.name);
+
+      const check = document.createElement('span');
+      check.className = 'node-check';
+      check.appendChild(icon(ICON_TICK));
+
+      const name = document.createElement('span');
+      name.className = 'node-name';
+      name.textContent = folder.name;
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'node-open';
+      open.textContent = 'Open ›';
+      open.setAttribute('aria-label', 'Open ' + folder.name);
+      open.addEventListener('click', function (event) {
+        // Opening a folder should not also tick it.
+        event.stopPropagation();
+        browseTo(folder.path);
+      });
+
+      node.appendChild(check);
+      node.appendChild(icon(ICON_FOLDER, 'node-folder'));
+      node.appendChild(name);
+      node.appendChild(open);
+
+      node.addEventListener('click', function () { toggleSelection(folder.path); });
+      node.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleSelection(folder.path);
+        }
+      });
+
+      box.appendChild(node);
+    });
+  }
+
+  async function browseTo(path) {
+    clearError();
+    state.browsePath = path || browseRoot();
+    renderCrumbs();
+
+    const box = $('lf-nodes');
+    box.textContent = '';
+    const loading = document.createElement('div');
+    loading.className = 'node-empty';
+    loading.textContent = 'Loading…';
+    box.appendChild(loading);
+
+    try {
+      const result = await DBX.listFolderChildren(state.browsePath);
+      state.browseChildren = result.folders;
+      renderNodes();
+    } catch (err) {
+      state.browseChildren = [];
+      box.textContent = '';
+      const failed = document.createElement('div');
+      failed.className = 'node-empty';
+      failed.textContent = err && err.message ? err.message : String(err);
+      box.appendChild(failed);
+    }
+    renderSelectionBar();
   }
 
   /* ---------- state-driven enabling ---------- */
@@ -204,6 +378,12 @@
 
     $('lf-stage-folders').classList.toggle('is-locked', !connected);
     $('lf-urls').disabled = !connected;
+
+    // Connecting while Browse is open should populate the tree without another click.
+    if (connected && activeSourceTab() === 'browse' && state.browsePath === null) {
+      browseTo(browseRoot());
+    }
+    renderSelectionBar();
 
     $('cfg-sheet').textContent = state.workbook
       ? state.fileName + ' › ' + state.sheetName
@@ -546,7 +726,11 @@
       chip.addEventListener('click', function () { setMode(chip.dataset.mode); });
     });
     bindTabs('lftab', 'lfpanel');
-    bindTabs('srctab', 'srcpanel');
+    bindTabs('srctab', 'srcpanel', function (name) {
+      // Load the tree the first time Browse is opened, not on every switch.
+      if (name === 'browse' && DBX.getAccount() && state.browsePath === null) browseTo(browseRoot());
+      refresh();
+    });
 
     const dropzone = $('lf-dropzone');
     const input = $('lf-file-input');
@@ -581,6 +765,14 @@
     });
 
     $('lf-urls').addEventListener('input', function () { renderChips(); refresh(); });
+
+    $('lf-use-selected').addEventListener('click', function () { scan(); });
+    $('lf-clear-sel').addEventListener('click', function () {
+      state.browseSelection = [];
+      renderNodes();
+      renderSelectionBar();
+      refresh();
+    });
     $('lf-agency').addEventListener('change', refresh);
     $('lf-scan').addEventListener('click', scan);
     $('lf-create-links').addEventListener('click', createMissingLinks);

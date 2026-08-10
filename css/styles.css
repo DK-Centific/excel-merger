@@ -127,8 +127,8 @@ code {
   width: 26px; height: 26px;
   flex: 0 0 26px;
   background-color: var(--brand);
-  -webkit-mask: url('../assets/centific-mark.png?v=5') no-repeat center / contain;
-  mask: url('../assets/centific-mark.png?v=5') no-repeat center / contain;
+  -webkit-mask: url('../assets/centific-mark.png?v=6') no-repeat center / contain;
+  mask: url('../assets/centific-mark.png?v=6') no-repeat center / contain;
 }
 .nav-sep { color: var(--text3); font-size: 14px; }
 .nav-sub {
@@ -803,6 +803,90 @@ table.grid td { padding: 11px 14px; font-size: 14px; vertical-align: top; letter
 }
 .urlchip.is-bad .path { color: var(--red-fg); }
 .urlchip .why { font-size: 11.5px; color: var(--text3); flex: 0 0 auto; }
+
+/* ── Dropbox folder browser ── */
+
+.tree {
+  margin-top: 12px;
+  border: .5px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--bg3);
+}
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 9px 13px;
+  background: var(--bg4);
+  border-bottom: .5px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  color: var(--text3);
+}
+.crumb {
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  border-radius: 5px;
+  font: inherit;
+  color: var(--text2);
+  cursor: pointer;
+}
+.crumb:hover { color: var(--text); background: var(--bg2); }
+.crumb.is-current { color: var(--text); font-weight: 500; cursor: default; }
+.crumb.is-current:hover { background: none; }
+.crumb-sep { color: var(--text3); opacity: .6; }
+
+.node {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 13px;
+  border-bottom: .5px solid var(--border);
+  cursor: pointer;
+  transition: background .16s var(--ease);
+}
+.node:last-child { border-bottom: none; }
+.node:hover { background: var(--bg4); }
+.node:focus-visible { outline: none; background: var(--bg4); box-shadow: inset 0 0 0 2px var(--brand-line); }
+.node.is-selected { background: var(--brand-soft); }
+
+.node-check {
+  width: 18px; height: 18px;
+  flex: 0 0 18px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg2);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  transition: background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease);
+}
+.node-check svg { width: 12px; height: 12px; }
+.node.is-selected .node-check { background: var(--brand); border-color: var(--brand); color: #fff; }
+.node-folder { width: 16px; height: 16px; flex: 0 0 16px; color: var(--brand); }
+.node-name { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; word-break: break-word; }
+.node-open {
+  background: none;
+  border: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 12px;
+  flex: 0 0 auto;
+  transition: color .16s var(--ease), background .16s var(--ease);
+}
+.node-open:hover { color: var(--text); background: var(--bg2); }
+.node-empty { padding: 20px 14px; text-align: center; font-size: 13px; color: var(--text3); }
+
+.srcbar { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.srcbar .sum { font-size: 12.5px; color: var(--text2); }
+.srcbar .sum b { color: var(--text); font-weight: 600; }
+.srcbar .btn { margin-left: auto; }
 
 .lf-table { min-width: 1180px; }
 .lf-table td { font-size: 13px; }

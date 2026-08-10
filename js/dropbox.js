@@ -293,6 +293,8 @@
           path_display: entry.path_display,
           path_lower: entry.path_lower,
           id: entry.id,
+          // Column Z (Date of Recording) is taken from this.
+          server_modified: entry.server_modified || null,
           link: '',
         });
       });
@@ -302,6 +304,37 @@
     }
 
     return files;
+  }
+
+  /*
+   * One level only, for the folder browser. Deliberately does not count each child's
+   * subfolders: that would be an extra API call per row and burn the rate limit on a
+   * listing the user is only skimming.
+   */
+  async function listFolderChildren(path) {
+    const folders = [];
+    const files = [];
+    let page = await rpc('/files/list_folder', {
+      path: !path || path === '/' ? '' : path,
+      recursive: false,
+      include_non_downloadable_files: false,
+    });
+
+    for (;;) {
+      page.entries.forEach(function (entry) {
+        const item = {
+          name: entry.name,
+          path: entry.path_display || entry.path_lower,
+        };
+        if (entry['.tag'] === 'folder') folders.push(item);
+        else if (entry['.tag'] === 'file') files.push(item);
+      });
+      if (!page.has_more) break;
+      page = await rpc('/files/list_folder/continue', { cursor: page.cursor });
+    }
+
+    folders.sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+    return { folders: folders, files: files };
   }
 
   /* Read-only. Returns the existing link for a path, or '' when there is none. */
@@ -357,6 +390,7 @@
     getAccount: getAccount,
     takeResumeState: takeResumeState,
     listFolderRecursive: listFolderRecursive,
+    listFolderChildren: listFolderChildren,
     existingSharedLink: existingSharedLink,
     createSharedLink: createSharedLink,
     resolveExistingLinks: resolveExistingLinks,

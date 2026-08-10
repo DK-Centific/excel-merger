@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merge — Agency Excel Consolidator</title>
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=5">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=5">
-<link rel="stylesheet" href="css/styles.css?v=5">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=6">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=6">
+<link rel="stylesheet" href="css/styles.css?v=6">
 </head>
 <body>
 
@@ -343,9 +343,14 @@
       </div>
 
       <div class="tab-panel" data-srcpanel="browse">
-        <div class="notice">
-          <p><strong>Not built yet.</strong> Browsing needs live folder listing on top of the connection. Paste
-            shipped first because it is just a URL parse; this is the planned second step. Use Paste URLs for now.</p>
+        <div class="tree">
+          <div class="crumbs" id="lf-crumbs"></div>
+          <div id="lf-nodes"></div>
+        </div>
+        <div class="srcbar">
+          <span class="sum" id="lf-selcount">No folders selected</span>
+          <button type="button" id="lf-clear-sel" class="linklike hidden">Clear</button>
+          <button type="button" id="lf-use-selected" class="btn btn-secondary" disabled>Use selected folders</button>
         </div>
       </div>
     </section>
@@ -468,17 +473,17 @@
 </div>
 
 <!-- ?v= busts the 10-minute GitHub Pages cache. Bump it when any of these change. -->
-<script src="vendor/exceljs.min.js?v=5"></script>
-<script src="vendor/fflate.min.js?v=5"></script>
-<script src="vendor/msal-browser.min.js?v=5"></script>
-<script src="config.js?v=5"></script>
-<script src="js/xlsxsanitize.js?v=5"></script>
-<script src="js/core.js?v=5"></script>
-<script src="js/metadata.js?v=5"></script>
-<script src="js/linkfiller.js?v=5"></script>
-<script src="js/sharepoint.js?v=5"></script>
-<script src="js/dropbox.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/linkfillerui.js?v=5"></script>
+<script src="vendor/exceljs.min.js?v=6"></script>
+<script src="vendor/fflate.min.js?v=6"></script>
+<script src="vendor/msal-browser.min.js?v=6"></script>
+<script src="config.js?v=6"></script>
+<script src="js/xlsxsanitize.js?v=6"></script>
+<script src="js/core.js?v=6"></script>
+<script src="js/metadata.js?v=6"></script>
+<script src="js/linkfiller.js?v=6"></script>
+<script src="js/sharepoint.js?v=6"></script>
+<script src="js/dropbox.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/linkfillerui.js?v=6"></script>
 </body>
 </html>
