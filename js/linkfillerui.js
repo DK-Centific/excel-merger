@@ -21,6 +21,7 @@
     rows: [],
     issues: [],
     workbookCount: 0,
+    foundWorkbooks: [],
     scannedFiles: [],
     browsePath: null,
     browseChildren: [],
@@ -151,6 +152,104 @@
       rows.push({ excelRow: rowNumber, values: values });
     });
     return { worksheet: worksheet, rows: rows };
+  }
+
+  /* ---------- discovered workbooks ---------- */
+
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async function downloadOneWorkbook(file, button) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Downloading…';
+    try {
+      const buffer = await DBX.downloadFile(file.path_display || file.path_lower);
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      button.textContent = 'Downloaded';
+    } catch (err) {
+      button.textContent = original;
+      showError(err && err.message ? err.message : String(err));
+    } finally {
+      button.disabled = false;
+      setTimeout(function () { button.textContent = original; }, 2500);
+    }
+  }
+
+  function renderFoundWorkbooks() {
+    const list = $('lf-found-list');
+    list.textContent = '';
+    const found = state.foundWorkbooks || [];
+    $('lf-found-count').textContent = String(found.length);
+    $('lf-found-wrap').classList.toggle('hidden', found.length === 0);
+
+    found.forEach(function (file) {
+      const li = document.createElement('li');
+      li.appendChild(icon('M8 3h5l5 5v13H8z', 'file-icon'));
+
+      const name = document.createElement('span');
+      name.className = 'file-name';
+      name.textContent = file.name;
+      name.title = file.path_display || '';
+
+      const meta = document.createElement('span');
+      meta.className = 'file-meta';
+      const bits = [];
+      if (file.diagnosis) bits.push(file.diagnosis);
+      if (file.size != null) bits.push(formatBytes(file.size));
+      meta.textContent = bits.join(' · ');
+
+      const get = document.createElement('button');
+      get.type = 'button';
+      get.className = 'linklike';
+      get.textContent = 'Download';
+      get.addEventListener('click', function () { downloadOneWorkbook(file, get); });
+
+      li.appendChild(name);
+      li.appendChild(meta);
+      li.appendChild(get);
+      list.appendChild(li);
+    });
+  }
+
+  /* Lists workbooks without merging, so a failing batch can be inspected. */
+  async function listExcelFiles() {
+    clearError();
+    const roots = validRoots();
+    if (!roots.length) { showError('Choose at least one folder first.'); return; }
+
+    try {
+      setBusy('Listing files…');
+      let files = [];
+      for (let i = 0; i < roots.length; i++) {
+        files = files.concat(await DBX.listFolderRecursive(roots[i], function (count) {
+          setBusy('Listing — ' + count + ' files…');
+        }));
+      }
+      state.foundWorkbooks = files.filter(DM.isMetadataWorkbook);
+      setBusy('');
+      renderFoundWorkbooks();
+      if (!state.foundWorkbooks.length) {
+        showError('No .xlsx or .xlsm files were found anywhere under the selected folders.');
+      }
+    } catch (err) {
+      setBusy('');
+      showError(err && err.message ? err.message : String(err));
+    }
   }
 
   /* ---------- source folders ---------- */
@@ -423,7 +522,9 @@
       : '—';
 
     // The merged sheet is derived from the folders; supplying one is an override, not a step.
-    $('lf-scan').disabled = !(connected && validRoots().length > 0);
+    const ready = connected && validRoots().length > 0;
+    $('lf-scan').disabled = !ready;
+    $('lf-list-excels').disabled = !ready;
   }
 
   /* ---------- scan ---------- */
@@ -468,6 +569,10 @@
       const workbooks = files.filter(DM.isMetadataWorkbook);
       const media = files.filter(function (file) { return !DM.isMetadataWorkbook(file); });
 
+      // Surface what was found before anything can fail, so the list is there either way.
+      state.foundWorkbooks = workbooks;
+      renderFoundWorkbooks();
+
       let rows = [];
       const readIssues = [];
 
@@ -490,22 +595,33 @@
             const folder = folderOf(book.path_display || book.name, roots);
             const read = global.MetadataMerge.readMetadataWorkbook(loaded.workbook, folder);
             if (!read.ok) {
+              book.diagnosis = 'no headers matched';
               readIssues.push({ severity: 'error', source: book.name, rule: 'Workbook skipped',
                 message: read.reason, original: '', corrected: '', column: '', header: '', row: null });
               continue;
             }
+            book.diagnosis = read.rows.length + ' row(s)';
             read.rows.forEach(function (row) {
               rows.push({ values: row.values, source: book.name });
             });
           } catch (err) {
             if (err && err.missingScope) throw err;
+            book.diagnosis = 'could not be read';
             readIssues.push({ severity: 'error', source: book.name, rule: 'Workbook could not be read',
               message: err && err.message ? err.message : String(err),
               original: '', corrected: '', column: '', header: '', row: null });
           }
         }
+        renderFoundWorkbooks();
+
         if (!rows.length) {
-          throw new Error('Found ' + workbooks.length + ' Excel file(s) but none had recognisable metadata headers.');
+          // Say which files and what was actually in them — "none recognisable" is not actionable.
+          const detail = readIssues.map(function (item) {
+            return item.source + ' — ' + item.message;
+          }).join('\n');
+          throw new Error('Found ' + workbooks.length + ' Excel file(s), none with recognisable headers.\n\n' +
+            detail + '\n\nThe files are listed under "Override the merged sheet" — download one to check its ' +
+            'header row.');
         }
       }
 
@@ -938,6 +1054,8 @@
     $('lf-urls').addEventListener('input', function () { renderChips(); refresh(); });
 
     $('lf-use-selected').addEventListener('click', function () { scan(); });
+    $('lf-list-excels').addEventListener('click', listExcelFiles);
+    $('lf-find-files').addEventListener('click', listExcelFiles);
     $('lf-clear-sel').addEventListener('click', function () {
       state.browseSelection = [];
       renderNodes();

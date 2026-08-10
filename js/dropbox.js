@@ -335,6 +335,7 @@
           id: entry.id,
           // Column Z (Date of Recording) is taken from this.
           server_modified: entry.server_modified || null,
+          size: entry.size == null ? null : entry.size,
           link: '',
         });
       });

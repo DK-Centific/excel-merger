@@ -135,6 +135,33 @@
    * Attribute headers are matched through the merger's vocabulary matcher, so the client's
    * "Other tattons" resolves to the canonical "Other tattoos" without a special case.
    */
+  /*
+   * Headers come from a controlled template, so matching them is deliberately stricter than
+   * matching cell values. The only typo worth tolerating is the client's own "Other
+   * tattons"; a general fuzzy match reads a data cell "Acme" as the attribute "Acne" and
+   * makes a row of invoice data look like a header row.
+   */
+  const MIN_FUZZY_HEADER_LENGTH = 6;
+
+  function matchAttributeHeader(raw, attributeIndex) {
+    const key = CORE.vocabKey(raw);
+    if (!key) return null;
+
+    const exact = attributeIndex[key];
+    if (exact) return exact;
+    if (key.length < MIN_FUZZY_HEADER_LENGTH) return null;
+
+    for (let g = 0; g < GROUP_KEYS.length; g++) {
+      const terms = CORE.ATTRIBUTE_VOCABULARY[GROUP_KEYS[g]] || [];
+      for (let t = 0; t < terms.length; t++) {
+        const termKey = CORE.vocabKey(terms[t]);
+        if (termKey.length < MIN_FUZZY_HEADER_LENGTH) continue;
+        if (CORE.editDistance(key, termKey) <= 1) return { group: g, canonical: terms[t] };
+      }
+    }
+    return null;
+  }
+
   function mapHeaders(worksheet, headerRowNumber) {
     const attributeIndex = buildAttributeIndex();
     const fields = {};
@@ -142,27 +169,37 @@
     let matched = 0;
 
     const headerRow = worksheet.getRow(headerRowNumber);
-    const width = Math.max(worksheet.columnCount || 0, headerRow.cellCount || 0);
 
-    for (let col = 1; col <= width; col++) {
-      const raw = cellText(headerRow.getCell(col).value);
+    /*
+     * Collect the populated cells directly rather than sweeping 1..columnCount.
+     * ExcelJS reports columnCount as 0 for sheets that carry no explicit dimension
+     * metadata — which is exactly what happens when the data is not inside an Excel
+     * table — and the old sweep then examined nothing and matched no headers at all.
+     */
+    const cells = [];
+    headerRow.eachCell({ includeEmpty: false }, function (cell, col) {
+      cells.push({ col: col, raw: cellText(cell.value) });
+    });
+    if (!cells.length) {
+      // Last resort for rows eachCell declines to walk.
+      const width = Math.max(worksheet.columnCount || 0, worksheet.actualColumnCount || 0, 60);
+      for (let col = 1; col <= width; col++) {
+        cells.push({ col: col, raw: cellText(headerRow.getCell(col).value) });
+      }
+    }
+
+    const seen = [];
+
+    for (let c = 0; c < cells.length; c++) {
+      const col = cells[c].col;
+      const raw = cells[c].raw;
       const key = norm(raw);
       if (!key) continue;
+      seen.push(String(raw).trim());
 
       if (IGNORED_HEADERS.indexOf(key) !== -1) continue;
 
-      const vkey = CORE.vocabKey(raw);
-      let attribute = attributeIndex[vkey];
-      if (!attribute) {
-        // Tolerate the template's own typos, e.g. "Other tattons".
-        for (let g = 0; g < GROUP_KEYS.length; g++) {
-          const hit = CORE.matchVocabulary(raw, CORE.ATTRIBUTE_VOCABULARY[GROUP_KEYS[g]]);
-          if (hit.status === 'corrected' || hit.status === 'normalized' || hit.status === 'exact') {
-            attribute = { group: g, canonical: hit.value };
-            break;
-          }
-        }
-      }
+      const attribute = matchAttributeHeader(raw, attributeIndex);
       if (attribute) {
         attributes.push({ col: col, group: attribute.group, canonical: attribute.canonical });
         matched++;
@@ -178,18 +215,50 @@
       });
     }
 
-    return { fields: fields, attributes: attributes, matched: matched };
+    return { fields: fields, attributes: attributes, matched: matched, seen: seen };
   }
 
   /* A metadata sheet is one whose header row we can actually read. */
+  /*
+   * The header row is not always row 1 — templates carry title and instruction rows above
+   * it. Scan a generous window and take the best-matching row. rowCount is unreliable for
+   * the same reason columnCount is, so it only widens the window, never narrows it.
+   */
+  const HEADER_SCAN_ROWS = 25;
+  const MIN_HEADER_MATCHES = 3;
+
   function findHeaderRow(worksheet) {
     let best = null;
-    const limit = Math.min(worksheet.rowCount || 1, 10);
+    const limit = Math.max(Math.min(worksheet.rowCount || 0, HEADER_SCAN_ROWS), HEADER_SCAN_ROWS);
+
     for (let rowNumber = 1; rowNumber <= limit; rowNumber++) {
       const map = mapHeaders(worksheet, rowNumber);
       if (!best || map.matched > best.map.matched) best = { rowNumber: rowNumber, map: map };
     }
-    return best && best.map.matched >= 4 ? best : null;
+    if (best) best.accepted = best.map.matched >= MIN_HEADER_MATCHES;
+    return best && best.accepted ? best : null;
+  }
+
+  /*
+   * What a workbook looks like from the outside, for when nothing matched and the user
+   * needs to see why rather than being told "no recognisable headers".
+   */
+  function describeWorkbook(workbook) {
+    return workbook.worksheets.map(function (worksheet) {
+      let best = null;
+      const limit = Math.max(Math.min(worksheet.rowCount || 0, HEADER_SCAN_ROWS), HEADER_SCAN_ROWS);
+      for (let rowNumber = 1; rowNumber <= limit; rowNumber++) {
+        const map = mapHeaders(worksheet, rowNumber);
+        if (!best || map.matched > best.map.matched) best = { rowNumber: rowNumber, map: map };
+      }
+      return {
+        sheet: worksheet.name,
+        rows: worksheet.rowCount || 0,
+        bestRow: best ? best.rowNumber : null,
+        matched: best ? best.map.matched : 0,
+        headersSeen: best ? best.map.seen.slice(0, 12) : [],
+      };
+    });
   }
 
   /*
@@ -253,7 +322,14 @@
       return out;
     }
 
-    out.reason = 'No sheet in this workbook has recognisable metadata headers.';
+    const seen = describeWorkbook(workbook)
+      .map(function (sheet) {
+        return sheet.sheet + ' (best row ' + sheet.bestRow + ', ' + sheet.matched + ' matched: ' +
+          (sheet.headersSeen.join(' | ') || 'no text in that row') + ')';
+      })
+      .join('; ');
+    out.reason = 'No sheet had at least ' + MIN_HEADER_MATCHES + ' recognisable headers. Saw — ' + seen;
+    out.sheets = describeWorkbook(workbook);
     return out;
   }
 
@@ -340,6 +416,7 @@
     norm: norm,
     mapHeaders: mapHeaders,
     findHeaderRow: findHeaderRow,
+    describeWorkbook: describeWorkbook,
     readMetadataWorkbook: readMetadataWorkbook,
     buildDeliveryWorkbook: buildDeliveryWorkbook,
   };

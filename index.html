@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merge — Agency Excel Consolidator</title>
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=8">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=8">
-<link rel="stylesheet" href="css/styles.css?v=8">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=9">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=9">
+<link rel="stylesheet" href="css/styles.css?v=9">
 </head>
 <body>
 
@@ -330,6 +330,8 @@
     <p class="hint">Leave this empty and the sheet is built from the workbooks found in the folders above. Supply one
       only to merge into an existing delivery sheet instead of discovering it.</p>
 
+    <button type="button" id="lf-list-excels" class="btn btn-secondary" disabled>List the Excel files found</button>
+
     <div class="tabs" role="tablist">
       <button type="button" class="tab is-active" role="tab" data-lftab="upload" aria-selected="true">Upload file</button>
       <button type="button" class="tab" role="tab" data-lftab="sharepoint" aria-selected="false">SharePoint link</button>
@@ -352,6 +354,16 @@
       <textarea id="lf-sp-url" rows="2" spellcheck="false"
         placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Centaurus_v2.xlsx"></textarea>
       <button type="button" id="lf-sp-fetch" class="btn btn-secondary spaced-top">Fetch sheet</button>
+    </div>
+
+    <div id="lf-found-wrap" class="hidden">
+      <div class="list-head">
+        <h3>Excel files found <span id="lf-found-count" class="count-pill">0</span></h3>
+        <button type="button" id="lf-find-files" class="linklike">Refresh</button>
+      </div>
+      <p class="hint">Every workbook discovered in the selected folders. Download one to inspect it if a
+        merge reports unrecognised headers.</p>
+      <ul id="lf-found-list" class="file-list"></ul>
     </div>
 
     <div id="lf-sheet-info" class="hidden">
@@ -490,18 +502,18 @@
 </div>
 
 <!-- ?v= busts the 10-minute GitHub Pages cache. Bump it when any of these change. -->
-<script src="vendor/exceljs.min.js?v=8"></script>
-<script src="vendor/fflate.min.js?v=8"></script>
-<script src="vendor/msal-browser.min.js?v=8"></script>
-<script src="config.js?v=8"></script>
-<script src="js/xlsxsanitize.js?v=8"></script>
-<script src="js/core.js?v=8"></script>
-<script src="js/metadata.js?v=8"></script>
-<script src="js/linkfiller.js?v=8"></script>
-<script src="js/deliverymerge.js?v=8"></script>
-<script src="js/sharepoint.js?v=8"></script>
-<script src="js/dropbox.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
-<script src="js/linkfillerui.js?v=8"></script>
+<script src="vendor/exceljs.min.js?v=9"></script>
+<script src="vendor/fflate.min.js?v=9"></script>
+<script src="vendor/msal-browser.min.js?v=9"></script>
+<script src="config.js?v=9"></script>
+<script src="js/xlsxsanitize.js?v=9"></script>
+<script src="js/core.js?v=9"></script>
+<script src="js/metadata.js?v=9"></script>
+<script src="js/linkfiller.js?v=9"></script>
+<script src="js/deliverymerge.js?v=9"></script>
+<script src="js/sharepoint.js?v=9"></script>
+<script src="js/dropbox.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
+<script src="js/linkfillerui.js?v=9"></script>
 </body>
 </html>
