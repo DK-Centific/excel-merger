@@ -910,6 +910,7 @@
     NONE_APPLY_TEXT: NONE_APPLY_TEXT,
     columnLetter: columnLetter,
     normalizeWhitespace: normalizeWhitespace,
+    editDistance: editDistance,
     parseBirthdate: parseBirthdate,
     isSlashPlaceholder: isSlashPlaceholder,
     processWorkbook: processWorkbook,

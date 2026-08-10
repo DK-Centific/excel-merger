@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merge — Agency Excel Consolidator</title>
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=3">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=3">
-<link rel="stylesheet" href="css/styles.css?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=4">
+<link rel="stylesheet" href="css/styles.css?v=4">
 </head>
 <body>
 
@@ -16,6 +16,11 @@
     <span class="nav-sep">/</span>
     <span class="nav-sub">Agency Excel Consolidator</span>
   </div>
+  <div class="modes" role="tablist" aria-label="Tool">
+    <button type="button" class="chip is-active" role="tab" data-mode="merge" aria-selected="true">Merge</button>
+    <button type="button" class="chip" role="tab" data-mode="linkfiller" aria-selected="false">Link filler</button>
+  </div>
+
   <div class="nav-right">
     <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle light and dark theme"></button>
     <button type="button" id="settings-btn" class="icon-btn" aria-label="SharePoint settings">
@@ -28,6 +33,8 @@
 </nav>
 
 <main class="shell">
+
+<div id="view-merge">
 
   <header class="hero">
     <p class="hero-eyebrow">Delivery Prep</p>
@@ -219,6 +226,200 @@
     <p id="qa-empty" class="hint hidden">No issues match this filter.</p>
   </section>
 
+</div><!-- /view-merge -->
+
+<div id="view-linkfiller" class="hidden">
+
+  <header class="hero">
+    <p class="hero-eyebrow">Metadata Link Filler</p>
+    <h1 class="hero-title">Fill the links, flag the rest.</h1>
+    <p class="hero-sub">
+      Point this at the Dropbox batch folders for an already-merged sheet. It matches each file to its row, fills the
+      three link columns, and holds anything ambiguous back for a human instead of guessing.
+    </p>
+    <div class="privacy-strip">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+      <span><strong>Nothing is created without your say-so.</strong> A scan only reads existing shared links. Creating
+        new ones publishes an anyone-with-the-link URL, so it happens only after you have seen the list and confirmed.</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">1</span>
+      <h2>Load the merged sheet</h2>
+    </div>
+    <p class="hint">The wide Centaurus sheet where F–AB are already populated — not the 21-column merge output.
+      Use the same upload or SharePoint tabs as the merger.</p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab is-active" role="tab" data-lftab="upload" aria-selected="true">Upload file</button>
+      <button type="button" class="tab" role="tab" data-lftab="sharepoint" aria-selected="false">SharePoint link</button>
+    </div>
+
+    <div class="tab-panel is-active" data-lfpanel="upload">
+      <div id="lf-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose the merged Excel file">
+        <svg class="ico dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
+        </svg>
+        <p class="dropzone-title">Drop the merged .xlsx here</p>
+        <p class="dropzone-sub">or click to browse</p>
+      </div>
+      <input type="file" id="lf-file-input" accept=".xlsx,.xlsm" hidden>
+    </div>
+
+    <div class="tab-panel" data-lfpanel="sharepoint">
+      <p class="hint">Uses the same Microsoft 365 sign-in as the merger's SharePoint tab.</p>
+      <label class="label" for="lf-sp-url">SharePoint link to the merged workbook</label>
+      <textarea id="lf-sp-url" rows="2" spellcheck="false"
+        placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Centaurus_v2.xlsx"></textarea>
+      <button type="button" id="lf-sp-fetch" class="btn btn-secondary spaced-top">Fetch sheet</button>
+    </div>
+
+    <div id="lf-sheet-info" class="hidden">
+      <div class="list-head">
+        <h3>Sheet loaded</h3>
+        <button type="button" id="lf-clear-sheet" class="linklike">Remove</button>
+      </div>
+      <ul class="file-list"><li id="lf-sheet-row"></li></ul>
+      <label class="label spaced-top" for="lf-sheet-select">Worksheet</label>
+      <select id="lf-sheet-select"></select>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">2</span>
+      <h2>Choose source folders</h2>
+    </div>
+
+    <section class="sp-stage" id="lf-stage-connect">
+      <div class="sp-stage-head">
+        <span class="sp-marker" id="lf-marker-connect" aria-hidden="true">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 17v-3m-5 3h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2zM8 8V6a4 4 0 0 1 8 0v2"/></svg>
+        </span>
+        <div>
+          <h3>Connect Dropbox</h3>
+          <p class="hint">The scan reads files <strong>as you</strong>, so you will only ever see folders your own
+            account can already open.</p>
+        </div>
+      </div>
+      <div id="lf-unconfigured" class="notice notice-warn">
+        <p><strong>This deployment isn't connected to Dropbox yet.</strong> It needs a one-time Dropbox app key.
+          Whoever set this up can add it under
+          <button type="button" class="linklike" id="lf-open-settings">Settings</button>.</p>
+      </div>
+      <div class="sp-account" id="lf-account-row">
+        <span id="lf-status" class="sp-status">Not connected</span>
+        <button type="button" id="lf-connect" class="btn btn-primary">Connect Dropbox</button>
+        <button type="button" id="lf-disconnect" class="btn btn-ghost hidden">Disconnect</button>
+      </div>
+    </section>
+
+    <section class="sp-stage is-locked" id="lf-stage-folders">
+      <div class="sp-stage-head">
+        <span class="sp-marker" aria-hidden="true">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        </span>
+        <div>
+          <h3>Point it at the batch folders</h3>
+          <p class="hint">One batch folder per participant-set, or several at once.</p>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab is-active" role="tab" data-srctab="paste" aria-selected="true">Paste URLs</button>
+        <button type="button" class="tab" role="tab" data-srctab="browse" aria-selected="false">Browse Dropbox</button>
+      </div>
+
+      <div class="tab-panel is-active" data-srcpanel="paste">
+        <label class="label" for="lf-urls">Dropbox folder URLs — one per line</label>
+        <textarea id="lf-urls" rows="4" spellcheck="false" disabled
+          placeholder="https://www.dropbox.com/home/Team%20Folder/Agency%20Collection/Powerling/Batch_5&#10;/Agency Collection/Aqlama/20260721"></textarea>
+        <div id="lf-chips" class="chips"></div>
+      </div>
+
+      <div class="tab-panel" data-srcpanel="browse">
+        <div class="notice">
+          <p><strong>Not built yet.</strong> Browsing needs live folder listing on top of the connection. Paste
+            shipped first because it is just a URL parse; this is the planned second step. Use Paste URLs for now.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="cfgstrip">
+      <div class="cfg"><div class="cfg-k">Merged sheet</div><div class="cfg-v mono" id="cfg-sheet">—</div></div>
+      <div class="cfg"><div class="cfg-k">Agency preset</div><div class="cfg-v">
+        <select id="lf-agency"><option value="Powerling">Powerling</option><option value="Aqlama">Aqlama</option></select>
+      </div></div>
+      <div class="cfg"><div class="cfg-k">Link mode</div><div class="cfg-v">Reuse · create only on confirm</div></div>
+      <div class="cfg"><div class="cfg-k">Fills</div><div class="cfg-v">E · AC · AD <span class="cfg-mute">(F–AB untouched)</span></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="step">3</span>
+      <h2>Scan and match</h2>
+    </div>
+    <button type="button" id="lf-scan" class="btn btn-primary btn-lg" disabled>Scan &amp; match files</button>
+    <div id="lf-progress" class="progress hidden"><span class="spinner"></span><span id="lf-progress-text">Working…</span></div>
+    <div id="lf-error" class="notice notice-error hidden spaced-top"></div>
+  </section>
+
+  <section id="lf-results" class="card hidden">
+    <div class="card-head">
+      <h2>Results</h2>
+      <div class="downloads">
+        <button type="button" id="lf-create-links" class="btn btn-secondary hidden">Create missing links</button>
+        <button type="button" id="lf-download" class="btn btn-primary">Download filled sheet</button>
+      </div>
+    </div>
+
+    <div class="stats" id="lf-stats"></div>
+
+    <div class="list-head">
+      <h3>Filled rows</h3>
+      <span class="hint">one row per video · AC / AD repeat per participant</span>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="table lf-table">
+          <thead>
+            <tr>
+              <th class="num">#</th><th>Participant (D)</th><th>Env (Q)</th><th>Expr (J)</th>
+              <th>Video link (E)</th><th>ICF (AC)</th><th>Assent (AD)</th><th>Row</th>
+            </tr>
+          </thead>
+          <tbody id="lf-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <p id="lf-truncated" class="hint hidden"></p>
+
+    <div class="panels">
+      <div class="panel">
+        <h3>Needs review <span id="lf-guard-count" class="count-pill">0</span></h3>
+        <div id="lf-guards"></div>
+      </div>
+      <div class="panel">
+        <h3>Match rules in effect</h3>
+        <div id="lf-rules" class="rulelist"></div>
+      </div>
+    </div>
+
+    <div class="notice spaced-top">
+      <p><strong>Re-running is safe.</strong> Existing links are reused, so a second pass only fills what changed and
+        never creates duplicate shares. Ephemeral <code>st=</code> tokens are dropped; the stored form is
+        <code>scl/fi/&lt;id&gt;?rlkey=&lt;key&gt;&amp;dl=0</code>.</p>
+    </div>
+  </section>
+
+</div><!-- /view-linkfiller -->
+
 </main>
 
 <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -246,6 +447,19 @@
     <p class="hint">Must be added as a <strong>Single-page application</strong> platform, exactly as shown.</p>
     <code id="redirect-uri" class="redirect-uri"></code>
 
+    <h2 class="modal-subhead">Dropbox connection</h2>
+    <p class="hint">
+      Only needed for the Link filler. Create a Dropbox app with the <code>files.metadata.read</code> and
+      <code>sharing.write</code> scopes, then paste its App key. It is a public client using PKCE, so there is no
+      app secret.
+    </p>
+
+    <label class="label" for="cfg-dropbox">Dropbox App key</label>
+    <input type="text" id="cfg-dropbox" spellcheck="false" placeholder="abcd1234efgh567">
+
+    <label class="label">Redirect URI for the Dropbox app</label>
+    <code id="dbx-redirect-uri" class="redirect-uri"></code>
+
     <div class="modal-actions">
       <button type="button" id="cfg-cancel" class="btn btn-ghost">Cancel</button>
       <button type="button" id="cfg-save" class="btn btn-primary">Save</button>
@@ -254,11 +468,14 @@
 </div>
 
 <!-- ?v= busts the 10-minute GitHub Pages cache. Bump it when any of these change. -->
-<script src="vendor/exceljs.min.js?v=3"></script>
-<script src="vendor/msal-browser.min.js?v=3"></script>
-<script src="config.js?v=3"></script>
-<script src="js/core.js?v=3"></script>
-<script src="js/sharepoint.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script src="vendor/exceljs.min.js?v=4"></script>
+<script src="vendor/msal-browser.min.js?v=4"></script>
+<script src="config.js?v=4"></script>
+<script src="js/core.js?v=4"></script>
+<script src="js/linkfiller.js?v=4"></script>
+<script src="js/sharepoint.js?v=4"></script>
+<script src="js/dropbox.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
+<script src="js/linkfillerui.js?v=4"></script>
 </body>
 </html>

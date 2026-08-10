@@ -391,6 +391,11 @@
     $('cfg-client').value = config.clientId;
     $('cfg-tenant').value = config.tenantId;
     $('redirect-uri').textContent = window.location.origin + window.location.pathname;
+
+    if (window.DropboxSource) {
+      $('cfg-dropbox').value = window.DropboxSource.getConfig().appKey;
+      $('dbx-redirect-uri').textContent = window.DropboxSource.redirectUri();
+    }
     $('settings-modal').classList.remove('hidden');
   }
 
@@ -400,21 +405,25 @@
 
   function saveSettings() {
     SharePointSource.saveConfig($('cfg-client').value.trim(), $('cfg-tenant').value.trim() || 'common');
+    if (window.DropboxSource) window.DropboxSource.saveConfig($('cfg-dropbox').value.trim());
     closeSettings();
     refreshSharePointPanel();
+    document.dispatchEvent(new CustomEvent('merger:settings-saved'));
   }
 
   /* ---------- wiring ---------- */
 
+  /* Scoped to this view: the link filler has its own tab groups using the same classes. */
   function initTabs() {
-    document.querySelectorAll('.tab').forEach(function (tab) {
+    const scope = $('view-merge') || document;
+    scope.querySelectorAll('.tab[data-tab]').forEach(function (tab) {
       tab.addEventListener('click', function () {
-        document.querySelectorAll('.tab').forEach(function (t) {
+        scope.querySelectorAll('.tab[data-tab]').forEach(function (t) {
           const active = t === tab;
           t.classList.toggle('is-active', active);
           t.setAttribute('aria-selected', String(active));
         });
-        document.querySelectorAll('.tab-panel').forEach(function (panel) {
+        scope.querySelectorAll('.tab-panel[data-panel]').forEach(function (panel) {
           panel.classList.toggle('is-active', panel.dataset.panel === tab.dataset.tab);
         });
       });

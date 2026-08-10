@@ -296,17 +296,117 @@ for wherever it is currently running, so you can copy it from there if the URL c
 
 ---
 
+## Metadata Link Filler
+
+A second tool in the same app — switch with **Merge / Link filler** in the nav. It fills the three Dropbox
+link columns on an already-merged Centaurus sheet by finding each participant's files and resolving a shared
+link for each.
+
+### It reads a different sheet from the merger
+
+This is the wide Centaurus sheet where **F–AB are already populated upstream**, not the 21-column output of
+the merger. Fixed positions, per the spec:
+
+| Col | Role | |
+|-----|------|---|
+| D | Participant / folder name | read |
+| **E** | Video URL — one per row | **written** |
+| J | Expressions (`Neutral` / `Non-Neutral`) | read |
+| K | For Non Neutral, Please Select | read, disambiguates |
+| Q | Environment (`Indoor` / `Outdoor`) | read |
+| **AC** | ICF URL — repeats per participant | **written** |
+| **AD** | Assent URL — repeats per participant | **written** |
+
+**F–AB are never written.** The config strip above the scan button shows the target sheet and the fill columns
+so a wrong target is visible before you run anything.
+
+### How it matches
+
+Participant identity comes from the **folder name**, not the filename. Within a participant's folder, files are
+classified by the agency preset (Powerling or Aqlama), then each video's Environment and Expression are read
+off its filename and matched to the row wanting that combination.
+
+- **Name join** normalizes case and separators, then matches **exactly**. `Ronald Okoth` and `Ronald Okothh`
+  are different people and never merge.
+- **Expression** tolerates typos — `N3UTRAL` still reads as Neutral — reusing the merger's edit-distance.
+- **Column K breaks ties.** When two videos both map to (Indoor, Non-Neutral), K names which one this row
+  wants. If K doesn't single one out, the row is flagged rather than guessed.
+
+### The five guards
+
+Each holds its rows out of the write set and lists them in the review panel:
+
+| Guard | Behaviour |
+|-------|-----------|
+| Missing assent | AD left blank, flagged. **Never borrowed from another participant.** |
+| Missing consent | AC left blank, flagged. |
+| Ambiguous slot | 2+ videos map to one (Env, Expression) and K doesn't resolve it. |
+| Unmatched name | A folder normalizes to no sheet row. Reported, never forced onto a near miss. |
+| Duplicate file | 2+ consent or assent files (`ICF 1.pdf`, `ICF 2.pdf`). Held as ambiguous. |
+
+### Nothing is created without confirmation
+
+A scan is **read-only**: it lists files and reuses shared links that already exist. Creating a link publishes
+an *anyone-with-the-link* URL to a participant video or consent form, so it happens only when you click
+**Create N missing links** and confirm the count.
+
+Row states are therefore distinct:
+
+- **Ready** — matched and all three links exist. Written on download.
+- **Needs link** — matched cleanly, but a file has no shared link yet. Not written, because writing would
+  blank the cell. Resolved by the create step.
+- **Review / Missing** — a guard tripped. Fix the source and re-run.
+
+Re-running is safe: existing links are reused, so a second pass only fills what changed and never creates
+duplicate shares. Links are stored in the durable form `scl/fi/<id>?rlkey=<key>&dl=0` — the ephemeral `st=`
+token is dropped because it expires and isn't reproducible.
+
+### Dropbox setup
+
+Needs a one-time Dropbox app, same pattern as the Azure one — add its **App key** under Settings or in
+`config.js`. Create the app at <https://www.dropbox.com/developers/apps> with scopes
+`files.metadata.read`, `sharing.read` and `sharing.write`, and add the redirect URI shown in Settings. It is a
+public client using PKCE, so there is **no app secret**.
+
+**Each person signs in with their own Dropbox account, once per device.** The tool requests an offline refresh
+token, so after the first connect it stays connected — no repeated sign-ins. There is deliberately no shared
+credential: a token embedded in this app would be readable by anyone visiting the public URL, and Dropbox's
+audit log would attribute every created link to one person instead of whoever actually made it. **Disconnect**
+clears the stored token, which matters on a shared machine.
+
+### Tests
+
+The matching engine is pure and has a regression suite covering every edge case in the spec — uppercase
+`.MOV`, near-duplicate names, lowercase leading names, duplicate `ICF 1.pdf`, a stray `.xlsx` beside the
+media, expression typos, all five guards and both agency presets:
+
+```bash
+node tests/linkfiller.test.js
+```
+
+To change the classification rules, edit `AGENCY_PRESETS` at the top of `js/linkfiller.js`.
+
+**Not yet exercised against the live Dropbox API** — no app key is registered. The matching, guards, writing
+and UI are all verified; the HTTP calls in `js/dropbox.js` follow the v2 docs but expect to verify team-folder
+path roots and pagination on the first real run.
+
+---
+
 ## Layout
 
 ```
-index.html                  markup
+index.html                  markup for both tools
 403.html                    shown to signed-in users who lack the merger role
-config.js                   optional Azure client/tenant ID defaults
+config.js                   optional Azure client/tenant ID and Dropbox app key defaults
 staticwebapp.config.json    Azure auth rules, routing and security headers
 css/styles.css              Centific design system tokens and components
-js/core.js                  schema, QA rules, merge, workbook building  ← the logic lives here
+js/core.js                  schema, QA rules, merge, workbook building  ← merger logic
+js/linkfiller.js            matching, guards, link normalization        ← link filler logic
 js/sharepoint.js            MSAL sign-in and Microsoft Graph download
-js/app.js                   UI wiring
+js/dropbox.js               Dropbox PKCE sign-in, listing, shared links
+js/app.js                   merger UI wiring
+js/linkfillerui.js          link filler UI wiring
+tests/linkfiller.test.js    matching engine regression suite (node, no deps)
 vendor/                     ExcelJS and MSAL, vendored so there are no CDN calls
 sample-files/               three agency files with deliberate data problems
 .github/workflows/          Azure Static Web Apps deployment
