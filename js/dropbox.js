@@ -24,6 +24,7 @@
 
   let token = null;
   let account = null;
+  let pathRoot = null;
 
   function redirectUri() {
     return global.location.origin + global.location.pathname;
@@ -197,6 +198,7 @@
     if (!token) return null;
     try {
       account = await rpc('/users/get_current_account', null);
+      adoptPathRoot(account);
       return account;
     } catch (err) {
       // An expired access token is recoverable if the refresh token still holds.
@@ -205,6 +207,7 @@
       if (await refreshAccessToken()) {
         try {
           account = await rpc('/users/get_current_account', null);
+          adoptPathRoot(account);
           return account;
         } catch (retryErr) {
           token = null;
@@ -215,9 +218,22 @@
     }
   }
 
+  /*
+   * Only worth setting when the account actually has a team space — for a personal Dropbox
+   * root and home are the same namespace and the header is unnecessary.
+   */
+  function adoptPathRoot(info) {
+    pathRoot = null;
+    const root = info && info.root_info;
+    if (!root || !root.root_namespace_id) return;
+    if (root.root_namespace_id === root.home_namespace_id) return;
+    pathRoot = JSON.stringify({ '.tag': 'root', root: root.root_namespace_id });
+  }
+
   function signOut() {
     token = null;
     account = null;
+    pathRoot = null;
     global.sessionStorage.removeItem(TOKEN_KEY);
     global.localStorage.removeItem(REFRESH_KEY);
   }
@@ -227,12 +243,20 @@
   async function rpc(endpoint, body) {
     if (!token) throw new Error('Not signed in to Dropbox.');
 
+    const headers = {
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json',
+    };
+    /*
+     * On a Dropbox Business team, a member's default namespace is their personal space, so
+     * a team folder path like /Centific Team Folder/... resolves to not_found without this.
+     * Addressing the team root makes those paths work as typed.
+     */
+    if (pathRoot) headers['Dropbox-API-Path-Root'] = pathRoot;
+
     const response = await fetch(API + endpoint, {
       method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: body == null ? 'null' : JSON.stringify(body),
     });
 
