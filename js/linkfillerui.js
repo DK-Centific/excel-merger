@@ -149,6 +149,38 @@
 
   /* ---------- discovered workbooks ---------- */
 
+  /*
+   * Hand a blob to the browser as a download.
+   *
+   * The URL must NOT be revoked synchronously after click(): the click only *schedules* the
+   * transfer, so tearing the URL down in the same tick races the download and it silently
+   * never starts. Revoke well after the browser has taken it.
+   */
+  /* Brief confirmation on a button, so a browser-blocked download is not silent. */
+  function flashButton(button, message) {
+    if (!button) return;
+    const original = button.dataset.label || button.textContent;
+    button.dataset.label = original;
+    button.textContent = message;
+    setTimeout(function () { button.textContent = button.dataset.label || original; }, 3000);
+  }
+
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+
+    setTimeout(function () {
+      if (anchor.parentNode) anchor.parentNode.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    }, 60000);
+  }
+
   function formatBytes(bytes) {
     if (!bytes && bytes !== 0) return '';
     if (bytes < 1024) return bytes + ' B';
@@ -165,14 +197,7 @@
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = file.name;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
+      saveBlob(blob, file.name);
       button.textContent = 'Downloaded';
     } catch (err) {
       button.textContent = original;
@@ -253,15 +278,8 @@
 
       button.textContent = 'Zipping…';
       const zipped = global.fflate.zipSync(entries, { level: 6 });
-      const blob = new Blob([zipped], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'agency-workbooks.zip';
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
+      saveBlob(new Blob([zipped], { type: 'application/zip' }), 'agency-workbooks.zip');
+      flashButton(button, 'Saved to Downloads');
     } catch (err) {
       showError(err && err.message ? err.message : String(err));
     } finally {
@@ -1039,14 +1057,8 @@
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'Result_Merged.xlsx';
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
+      saveBlob(blob, 'Result_Merged.xlsx');
+      flashButton($('lf-download'), 'Saved to Downloads');
 
       setBusy('');
       const metrics = state.plan.metrics;
