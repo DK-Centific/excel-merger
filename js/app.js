@@ -307,6 +307,7 @@
   /* ---------- sharepoint panel ---------- */
 
   function refreshSharePointPanel() {
+    if (!$('sp-unconfigured')) return; // merger view not present
     const configured = SharePointSource.isConfigured();
     $('sp-unconfigured').classList.toggle('hidden', configured);
     $('sp-configured').classList.toggle('hidden', !configured);
@@ -401,6 +402,22 @@
 
   function closeSettings() {
     $('settings-modal').classList.add('hidden');
+  }
+
+  /* Shared chrome: works with or without the standalone merger view present. */
+  function initSettings() {
+    const openers = [$('settings-btn'), $('open-settings-link')];
+    openers.forEach(function (button) {
+      if (button) button.addEventListener('click', openSettings);
+    });
+    $('cfg-cancel').addEventListener('click', closeSettings);
+    $('cfg-save').addEventListener('click', saveSettings);
+    $('settings-modal').addEventListener('click', function (event) {
+      if (event.target === $('settings-modal')) closeSettings();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeSettings();
+    });
   }
 
   function saveSettings() {
@@ -518,7 +535,13 @@
   }
 
   function init() {
+    // Theme and the settings dialog are shared chrome, so they are wired first and
+    // unconditionally — the standalone merger view is optional.
     initTheme();
+    initSettings();
+
+    if (!$('view-merge')) return;
+
     initTabs();
     initDropzone();
     initFilters();
@@ -542,17 +565,6 @@
       } finally {
         refreshSharePointPanel();
       }
-    });
-
-    $('settings-btn').addEventListener('click', openSettings);
-    $('open-settings-link').addEventListener('click', openSettings);
-    $('cfg-cancel').addEventListener('click', closeSettings);
-    $('cfg-save').addEventListener('click', saveSettings);
-    $('settings-modal').addEventListener('click', function (event) {
-      if (event.target === $('settings-modal')) closeSettings();
-    });
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') closeSettings();
     });
 
     refreshSharePointPanel();

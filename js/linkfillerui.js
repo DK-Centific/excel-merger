@@ -64,15 +64,8 @@
 
   /* ---------- mode switching ---------- */
 
-  function setMode(mode) {
-    document.querySelectorAll('.modes .chip').forEach(function (chip) {
-      const on = chip.dataset.mode === mode;
-      chip.classList.toggle('is-active', on);
-      chip.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    $('view-merge').classList.toggle('hidden', mode !== 'merge');
-    $('view-linkfiller').classList.toggle('hidden', mode !== 'linkfiller');
-  }
+  /* The link filler is the whole app now; the standalone merger view is gone. */
+  function setMode() {}
 
   function bindTabs(tabAttr, panelAttr, onChange) {
     document.querySelectorAll('[data-' + tabAttr + ']').forEach(function (tab) {
@@ -196,6 +189,7 @@
     const found = state.foundWorkbooks || [];
     $('lf-found-count').textContent = String(found.length);
     $('lf-found-wrap').classList.toggle('hidden', found.length === 0);
+    $('lf-zip-excels').classList.toggle('hidden', found.length === 0);
 
     found.forEach(function (file) {
       const li = document.createElement('li');
@@ -224,6 +218,56 @@
       li.appendChild(get);
       list.appendChild(li);
     });
+  }
+
+  /*
+   * Bundle every discovered workbook into one zip. A batch folder can hold thousands of
+   * media files, so hunting the handful of spreadsheets by hand in Dropbox is the slow part.
+   */
+  async function zipAllWorkbooks() {
+    const found = state.foundWorkbooks || [];
+    if (!found.length) return;
+
+    const button = $('lf-zip-excels');
+    const original = button.textContent;
+    button.disabled = true;
+    clearError();
+
+    try {
+      const entries = {};
+      const used = {};
+      for (let i = 0; i < found.length; i++) {
+        const file = found[i];
+        button.textContent = 'Fetching ' + (i + 1) + ' of ' + found.length + '…';
+        const buffer = await DBX.downloadFile(file.path_display || file.path_lower);
+
+        // Two agencies can both ship "metadata.xlsx"; keep both.
+        let name = file.name;
+        if (used[name]) {
+          const dot = name.lastIndexOf('.');
+          name = name.slice(0, dot) + ' (' + used[file.name] + ')' + name.slice(dot);
+        }
+        used[file.name] = (used[file.name] || 0) + 1;
+        entries[name] = new Uint8Array(buffer);
+      }
+
+      button.textContent = 'Zipping…';
+      const zipped = global.fflate.zipSync(entries, { level: 6 });
+      const blob = new Blob([zipped], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'agency-workbooks.zip';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showError(err && err.message ? err.message : String(err));
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 
   /* Lists workbooks without merging, so a failing batch can be inspected. */
@@ -629,7 +673,20 @@
       setBusy('Checking ' + rows.length + ' rows…');
       const qaIssues = DM.runQa(rows, { dayFirst: dayFirst });
 
-      // ---- 3. map the Dropbox links ----
+      // ---- 3. map the Dropbox links, unless the merged sheet alone was asked for ----
+      if (($('lf-output') || {}).value === 'merge') {
+        state.rows = rows;
+        state.scannedFiles = [];
+        state.plan = LF.planFill({ rows: [] }, [], { config: config, roots: roots });
+        state.issues = readIssues.concat(qaIssues);
+        state.workbookCount = state.workbook ? 0 : workbooks.length;
+        state.linksMapped = false;
+        setBusy('');
+        renderResults();
+        return;
+      }
+      state.linksMapped = true;
+
       const knownKeys = rows.map(function (row) { return LF.normalizeName(row.values[LF.COL.NAME]); })
         .filter(Boolean);
       media.forEach(function (file) {
@@ -652,7 +709,8 @@
       state.scannedFiles = media;
       state.plan = plan;
       state.issues = readIssues.concat(qaIssues);
-      state.workbookCount = workbooks.length;
+      // Counting discovered workbooks would be a lie when an override sheet supplied the rows.
+      state.workbookCount = state.workbook ? 0 : workbooks.length;
 
       setBusy('');
       renderResults();
@@ -731,9 +789,19 @@
     addStat(stats, state.rows.length,
       'Rows merged' + (state.workbookCount ? ' from ' + state.workbookCount + ' file(s)' : ''));
     addStat(stats, autoFixed, 'QA auto-fixes', 'fixed');
-    addStat(stats, metrics.linksResolved,
-      metrics.linksReused + ' reused · ' + metrics.linksToCreate + ' to create');
+    if (state.linksMapped) {
+      addStat(stats, metrics.linksResolved,
+        metrics.linksReused + ' reused · ' + metrics.linksToCreate + ' to create');
+    } else {
+      addStat(stats, '—', 'Links not mapped');
+    }
     addStat(stats, needsHuman, 'Need a human', 'review');
+
+    // The per-row link table and its guards only mean anything once links were mapped.
+    const linkTable = document.querySelector('#lf-results .table-wrap');
+    if (linkTable) linkTable.classList.toggle('hidden', !state.linksMapped);
+    const panels = document.querySelector('#lf-results .panels');
+    if (panels) panels.classList.toggle('hidden', !state.linksMapped);
 
     const body = $('lf-body');
     body.textContent = '';
@@ -1009,9 +1077,6 @@
       return;
     }
 
-    document.querySelectorAll('.modes .chip').forEach(function (chip) {
-      chip.addEventListener('click', function () { setMode(chip.dataset.mode); });
-    });
     bindTabs('lftab', 'lfpanel');
     bindTabs('srctab', 'srcpanel', function (name) {
       // Always open at the configured root, and retry if the last attempt failed.
@@ -1056,6 +1121,7 @@
     $('lf-use-selected').addEventListener('click', function () { scan(); });
     $('lf-list-excels').addEventListener('click', listExcelFiles);
     $('lf-find-files').addEventListener('click', listExcelFiles);
+    $('lf-zip-excels').addEventListener('click', zipAllWorkbooks);
     $('lf-clear-sel').addEventListener('click', function () {
       state.browseSelection = [];
       renderNodes();

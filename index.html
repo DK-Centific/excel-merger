@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merge — Agency Excel Consolidator</title>
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=9">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=9">
-<link rel="stylesheet" href="css/styles.css?v=9">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=10">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=10">
+<link rel="stylesheet" href="css/styles.css?v=10">
 </head>
 <body>
 
@@ -16,11 +16,6 @@
     <span class="nav-sep">/</span>
     <span class="nav-sub">Agency Excel Consolidator</span>
   </div>
-  <div class="modes" role="tablist" aria-label="Tool">
-    <button type="button" class="chip is-active" role="tab" data-mode="merge" aria-selected="true">Merge</button>
-    <button type="button" class="chip" role="tab" data-mode="linkfiller" aria-selected="false">Link filler</button>
-  </div>
-
   <div class="nav-right">
     <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle light and dark theme"></button>
     <button type="button" id="settings-btn" class="icon-btn" aria-label="SharePoint settings">
@@ -34,201 +29,8 @@
 
 <main class="shell">
 
-<div id="view-merge">
 
-  <header class="hero">
-    <p class="hero-eyebrow">Delivery Prep</p>
-    <h1 class="hero-title">One workbook, checked row by row.</h1>
-    <p class="hero-sub">
-      Pull in every agency submission, merge them under a single set of headers, and get a QA report that shows exactly
-      what was corrected and what still needs a human.
-    </p>
-    <div class="privacy-strip">
-      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        <path d="m9 12 2 2 4-4"/>
-      </svg>
-      <span><strong>Your data stays on this device.</strong> Files are read, merged, and checked entirely inside your
-        browser. Nothing is uploaded to any server.</span>
-    </div>
-  </header>
-
-  <section class="card">
-    <div class="card-head">
-      <span class="step">1</span>
-      <h2>Add the agency files</h2>
-    </div>
-
-    <div class="tabs" role="tablist">
-      <button type="button" class="tab is-active" role="tab" data-tab="upload" aria-selected="true">Upload files</button>
-      <button type="button" class="tab" role="tab" data-tab="sharepoint" aria-selected="false">SharePoint links</button>
-    </div>
-
-    <div class="tab-panel is-active" data-panel="upload">
-      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose Excel files or drop them here">
-        <svg class="ico dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
-        </svg>
-        <p class="dropzone-title">Drop .xlsx files here</p>
-        <p class="dropzone-sub">or click to browse</p>
-      </div>
-      <input type="file" id="file-input" accept=".xlsx,.xlsm" multiple hidden>
-    </div>
-
-    <div class="tab-panel" data-panel="sharepoint">
-      <div id="sp-unconfigured" class="notice notice-warn">
-        <p><strong>This deployment isn't connected to Microsoft 365 yet.</strong> A one-time Azure app
-        registration is needed before anyone can sign in. Whoever set this up can add it under
-        <button type="button" class="linklike" id="open-settings-link">Settings</button>. Until then, use the
-        Upload files tab.</p>
-      </div>
-
-      <div id="sp-configured" class="hidden">
-
-        <section class="sp-stage" id="sp-stage-signin">
-          <div class="sp-stage-head">
-            <span class="sp-marker" id="sp-marker-signin" aria-hidden="true">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M12 17v-3m-5 3h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2zM8 8V6a4 4 0 0 1 8 0v2"/></svg>
-            </span>
-            <div>
-              <h3>Sign in to Microsoft 365</h3>
-              <p class="hint">The tool reads files <strong>as you</strong>. You'll only ever see SharePoint
-                locations your own account can already open.</p>
-            </div>
-          </div>
-          <div class="sp-account">
-            <span id="sp-status" class="sp-status">Not signed in</span>
-            <button type="button" id="sp-signin" class="btn btn-primary">Sign in with Microsoft 365</button>
-            <button type="button" id="sp-switch" class="btn btn-ghost hidden">Switch account</button>
-            <button type="button" id="sp-signout" class="btn btn-ghost hidden">Sign out</button>
-          </div>
-        </section>
-
-        <section class="sp-stage is-locked" id="sp-stage-url">
-          <div class="sp-stage-head">
-            <span class="sp-marker" aria-hidden="true">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
-            </span>
-            <div>
-              <h3>Point it at the files</h3>
-              <p class="hint">Paste a link to a workbook, or to a folder to pull in every .xlsx inside it.</p>
-            </div>
-          </div>
-          <label class="label" for="sp-urls">SharePoint or OneDrive links — one per line</label>
-          <textarea id="sp-urls" rows="5" spellcheck="false" disabled
-            placeholder="https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/AgencyA.xlsx&#10;https://contoso.sharepoint.com/sites/Delivery/Shared%20Documents/Submissions"></textarea>
-          <button type="button" id="sp-fetch" class="btn btn-secondary spaced-top" disabled>Fetch files</button>
-        </section>
-
-      </div>
-    </div>
-
-    <div id="file-list-wrap" class="hidden">
-      <div class="list-head">
-        <h3>Files queued <span id="file-count" class="count-pill">0</span></h3>
-        <button type="button" id="clear-files" class="linklike">Remove all</button>
-      </div>
-      <ul id="file-list" class="file-list"></ul>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <span class="step">2</span>
-      <h2>Options</h2>
-    </div>
-
-    <div class="option-row">
-      <div class="option-text">
-        <label for="date-order">Ambiguous dates like <code>05/06/1990</code></label>
-        <p class="hint">When the day and month are both 12 or lower there is no way to tell them apart. Pick which one
-          comes first. Every affected row is flagged for review either way.</p>
-      </div>
-      <select id="date-order">
-        <option value="day">Day first — DD/MM/YYYY</option>
-        <option value="month">Month first — MM/DD/YYYY</option>
-      </select>
-    </div>
-
-    <div class="option-row">
-      <div class="option-text">
-        <label id="include-qa-label">Add the QA report as extra sheets in the merged file</label>
-        <p class="hint">Leave this off for the copy you send to the client. The QA report is always downloadable
-          separately.</p>
-      </div>
-      <button type="button" id="include-qa" class="switch" role="switch" aria-checked="false"
-        aria-labelledby="include-qa-label"></button>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <span class="step">3</span>
-      <h2>Merge and check</h2>
-    </div>
-    <button type="button" id="merge-btn" class="btn btn-primary btn-lg" disabled>
-      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7l2 3h7M4 7v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/></svg>
-      Merge files
-    </button>
-    <div id="progress" class="progress hidden"><span class="spinner"></span><span id="progress-text">Working…</span></div>
-    <div id="global-error" class="notice notice-error hidden spaced-top"></div>
-  </section>
-
-  <section id="results" class="card hidden">
-    <div class="card-head">
-      <h2>Results</h2>
-      <div class="downloads">
-        <button type="button" id="download-merged" class="btn btn-primary">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-          Merged Excel
-        </button>
-        <button type="button" id="download-qa" class="btn btn-secondary">QA report</button>
-      </div>
-    </div>
-
-    <div class="stats" id="stats"></div>
-
-    <label class="label">Source files</label>
-    <div class="table-wrap">
-      <table class="grid sources-table">
-        <thead>
-          <tr><th>Source file</th><th>Origin</th><th>Rows</th><th>Merged rows</th><th>Status</th></tr>
-        </thead>
-        <tbody id="sources-body"></tbody>
-      </table>
-    </div>
-
-    <label class="label">QA report</label>
-    <div class="qa-controls">
-      <div class="filters" id="severity-filters">
-        <button type="button" class="chip is-active" data-severity="all">All</button>
-        <button type="button" class="chip" data-severity="error">Errors</button>
-        <button type="button" class="chip" data-severity="review">Needs review</button>
-        <button type="button" class="chip" data-severity="fixed">Auto-fixed</button>
-      </div>
-      <input type="search" id="qa-search" placeholder="Search the QA report…" aria-label="Search QA report">
-    </div>
-
-    <div class="table-wrap">
-      <div class="table-scroll">
-        <table class="grid qa-table">
-          <thead>
-            <tr>
-              <th>Severity</th><th>File</th><th>Src</th><th>Row</th>
-              <th>Col</th><th>Check</th><th>Original</th><th>Corrected</th><th>Details</th>
-            </tr>
-          </thead>
-          <tbody id="qa-body"></tbody>
-        </table>
-      </div>
-    </div>
-    <p id="qa-truncated" class="hint hidden"></p>
-    <p id="qa-empty" class="hint hidden">No issues match this filter.</p>
-  </section>
-
-</div><!-- /view-merge -->
-
-<div id="view-linkfiller" class="hidden">
+<div id="view-linkfiller">
 
   <header class="hero">
     <p class="hero-eyebrow">Metadata Link Filler</p>
@@ -320,6 +122,23 @@
       <div class="cfg"><div class="cfg-k">Link mode</div><div class="cfg-v">Reuse · create only on confirm</div></div>
       <div class="cfg"><div class="cfg-k">Fills</div><div class="cfg-v">E · AC · AD <span class="cfg-mute">(F–AB untouched)</span></div></div>
     </div>
+
+    <div class="lf-grab">
+      <button type="button" id="lf-list-excels" class="btn btn-secondary" disabled>Find the Excel files</button>
+      <button type="button" id="lf-zip-excels" class="btn btn-secondary hidden">Download all as .zip</button>
+      <span class="hint" id="lf-grab-hint">Pull the workbooks out without scrolling Dropbox.</span>
+    </div>
+
+    <div id="lf-found-wrap" class="hidden">
+      <div class="list-head">
+        <h3>Excel files found <span id="lf-found-count" class="count-pill">0</span></h3>
+        <button type="button" id="lf-find-files" class="linklike">Refresh</button>
+      </div>
+      <p class="hint">Every workbook discovered in the selected folders. Download one to inspect it if a
+        merge reports unrecognised headers.</p>
+      <ul id="lf-found-list" class="file-list"></ul>
+    </div>
+
   </section>
 
   <section class="card">
@@ -330,7 +149,6 @@
     <p class="hint">Leave this empty and the sheet is built from the workbooks found in the folders above. Supply one
       only to merge into an existing delivery sheet instead of discovering it.</p>
 
-    <button type="button" id="lf-list-excels" class="btn btn-secondary" disabled>List the Excel files found</button>
 
     <div class="tabs" role="tablist">
       <button type="button" class="tab is-active" role="tab" data-lftab="upload" aria-selected="true">Upload file</button>
@@ -356,16 +174,6 @@
       <button type="button" id="lf-sp-fetch" class="btn btn-secondary spaced-top">Fetch sheet</button>
     </div>
 
-    <div id="lf-found-wrap" class="hidden">
-      <div class="list-head">
-        <h3>Excel files found <span id="lf-found-count" class="count-pill">0</span></h3>
-        <button type="button" id="lf-find-files" class="linklike">Refresh</button>
-      </div>
-      <p class="hint">Every workbook discovered in the selected folders. Download one to inspect it if a
-        merge reports unrecognised headers.</p>
-      <ul id="lf-found-list" class="file-list"></ul>
-    </div>
-
     <div id="lf-sheet-info" class="hidden">
       <div class="list-head">
         <h3>Sheet loaded</h3>
@@ -381,6 +189,18 @@
     <div class="card-head">
       <span class="step">3</span>
       <h2>Merge, check and map links</h2>
+    </div>
+
+    <div class="option-row">
+      <div class="option-text">
+        <label for="lf-output">What to produce</label>
+        <p class="hint">Merging and QA happen either way. Mapping links adds the Dropbox URLs for the video,
+          ICF and assent files in columns E, AC and AD.</p>
+      </div>
+      <select id="lf-output">
+        <option value="links">Merged sheet with mapped links</option>
+        <option value="merge">Merged sheet only</option>
+      </select>
     </div>
 
     <div class="option-row">
@@ -502,18 +322,18 @@
 </div>
 
 <!-- ?v= busts the 10-minute GitHub Pages cache. Bump it when any of these change. -->
-<script src="vendor/exceljs.min.js?v=9"></script>
-<script src="vendor/fflate.min.js?v=9"></script>
-<script src="vendor/msal-browser.min.js?v=9"></script>
-<script src="config.js?v=9"></script>
-<script src="js/xlsxsanitize.js?v=9"></script>
-<script src="js/core.js?v=9"></script>
-<script src="js/metadata.js?v=9"></script>
-<script src="js/linkfiller.js?v=9"></script>
-<script src="js/deliverymerge.js?v=9"></script>
-<script src="js/sharepoint.js?v=9"></script>
-<script src="js/dropbox.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
-<script src="js/linkfillerui.js?v=9"></script>
+<script src="vendor/exceljs.min.js?v=10"></script>
+<script src="vendor/fflate.min.js?v=10"></script>
+<script src="vendor/msal-browser.min.js?v=10"></script>
+<script src="config.js?v=10"></script>
+<script src="js/xlsxsanitize.js?v=10"></script>
+<script src="js/core.js?v=10"></script>
+<script src="js/metadata.js?v=10"></script>
+<script src="js/linkfiller.js?v=10"></script>
+<script src="js/deliverymerge.js?v=10"></script>
+<script src="js/sharepoint.js?v=10"></script>
+<script src="js/dropbox.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
+<script src="js/linkfillerui.js?v=10"></script>
 </body>
 </html>
