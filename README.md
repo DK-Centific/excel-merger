@@ -3,6 +3,9 @@
 Merges Excel submissions from multiple agencies into one client-ready workbook, running a QA pass on every
 row and reporting exactly what was corrected and what still needs a human.
 
+**New here? Read [HOW-TO.md](HOW-TO.md)** — a two-minute guide for using the tool. This file is the
+technical reference.
+
 Everything runs **inside the browser**. Files are never uploaded to a server — which matters here, because
 the data contains participant names, emails, guardian contacts and birthdates.
 
