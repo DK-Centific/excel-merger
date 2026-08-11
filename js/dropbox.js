@@ -432,12 +432,24 @@
    * Fetch a file's bytes. Used only for the metadata workbooks — the media and consent
    * files are linked, never downloaded, so participant video never touches this browser.
    */
+  /*
+   * HTTP header values are ByteStrings, so a non-ASCII character throws before the request
+   * is even sent — and agency filenames really do contain them ("Aqlama – Centaurus –
+   * Metadata.xlsx" uses en dashes). Dropbox documents this: the API-Arg header must be
+   * ASCII, with \uXXXX escapes, which JSON parses back to the original string server-side.
+   */
+  function asciiArg(value) {
+    return JSON.stringify(value).replace(/[-￿]/g, function (character) {
+      return '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0');
+    });
+  }
+
   async function downloadFile(path) {
     if (!token) throw new Error('Not signed in to Dropbox.');
 
     const headers = {
       Authorization: 'Bearer ' + token,
-      'Dropbox-API-Arg': JSON.stringify({ path: path }),
+      'Dropbox-API-Arg': asciiArg({ path: path }),
     };
     if (pathRoot) headers['Dropbox-API-Path-Root'] = pathRoot;
 
