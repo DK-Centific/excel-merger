@@ -374,6 +374,7 @@ On the **Permissions** tab tick all four, then click **Submit**:
 |---|---|
 | `account_info.read` | `users/get_current_account` — the connection check, and `root_info` for addressing team folders |
 | `files.metadata.read` | `files/list_folder` — browsing and enumerating |
+| `files.content.read` | `files/download` — reading the agency metadata workbooks. Only `.xlsx` files are fetched; video and consent files are linked, never downloaded |
 | `sharing.read` | `sharing/list_shared_links` — reusing links that already exist |
 | `sharing.write` | `sharing/create_shared_link_with_settings` — only after you confirm |
 

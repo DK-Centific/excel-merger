@@ -569,6 +569,29 @@
     $('lf-disconnect').classList.toggle('hidden', !connected);
     $('lf-marker-connect').classList.toggle('is-done', connected);
 
+    /*
+     * Say up front which permission is short, rather than letting the run die on a 401
+     * partway through. Only meaningful once connected — before that we know nothing.
+     */
+    const warning = $('lf-scope-warning');
+    const short = connected && DBX.missingScopes ? DBX.missingScopes() : [];
+    warning.textContent = '';
+    warning.classList.toggle('hidden', short.length === 0);
+    if (short.length) {
+      const p = document.createElement('p');
+      const lead = document.createElement('strong');
+      lead.textContent = 'This sign-in is missing ' + short.length + ' permission' +
+        (short.length === 1 ? '' : 's') + ': ';
+      p.appendChild(lead);
+      const code = document.createElement('code');
+      code.textContent = short.join(', ');
+      p.appendChild(code);
+      p.appendChild(document.createTextNode(
+        '. Tick it on your Dropbox app\'s Permissions tab, click Submit, then Disconnect and ' +
+        'connect again — a permission added after you connected does not apply to an existing sign-in.'));
+      warning.appendChild(p);
+    }
+
     $('lf-stage-folders').classList.toggle('is-locked', !connected);
     $('lf-urls').disabled = !connected;
 

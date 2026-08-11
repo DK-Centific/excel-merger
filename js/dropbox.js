@@ -32,6 +32,16 @@
     'sharing.write',
   ];
 
+  /* Which scope each endpoint needs, so a 401 can name it even on an empty body. */
+  const SCOPE_FOR = {
+    '/users/get_current_account': 'account_info.read',
+    '/files/list_folder': 'files.metadata.read',
+    '/files/list_folder/continue': 'files.metadata.read',
+    '/files/download': 'files.content.read',
+    '/sharing/list_shared_links': 'sharing.read',
+    '/sharing/create_shared_link_with_settings': 'sharing.write',
+  };
+
   const AUTH_URL = 'https://www.dropbox.com/oauth2/authorize';
   const TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token';
   const API = 'https://api.dropboxapi.com/2';
@@ -46,6 +56,35 @@
   let token = null;
   let account = null;
   let pathRoot = null;
+  let granted = null; // null = not told yet this session
+
+  const GRANTED_KEY = 'merger.dropbox.scopes';
+
+  /* The token response tells us what was actually granted, so a gap is visible
+     immediately rather than as a 401 halfway through a run. */
+  function rememberScopes(payload) {
+    if (!payload || !payload.scope) return;
+    granted = String(payload.scope).split(/\s+/).filter(Boolean);
+    try {
+      global.localStorage.setItem(GRANTED_KEY, granted.join(' '));
+    } catch (err) { /* private mode */ }
+  }
+
+  /*
+   * Never memoise a storage read: reconnecting with a wider grant must be seen straight
+   * away, otherwise the warning outlives the problem it describes.
+   */
+  function grantedScopes() {
+    if (granted && granted.length) return granted;
+    const stored = global.localStorage.getItem(GRANTED_KEY);
+    return stored ? stored.split(/\s+/).filter(Boolean) : null;
+  }
+
+  function missingScopes() {
+    const have = grantedScopes();
+    if (!have || !have.length) return []; // unknown, not necessarily missing
+    return SCOPES.filter(function (scope) { return have.indexOf(scope) === -1; });
+  }
 
   function redirectUri() {
     return global.location.origin + global.location.pathname;
@@ -155,6 +194,7 @@
     const payload = await response.json();
     token = payload.access_token;
     global.sessionStorage.setItem(TOKEN_KEY, token);
+    rememberScopes(payload);
     /*
      * The refresh token persists so a teammate signs in once on their machine and never
      * again. It is that person's own delegated access, not a shared credential — Dropbox
@@ -189,6 +229,7 @@
     const payload = await response.json();
     token = payload.access_token;
     global.sessionStorage.setItem(TOKEN_KEY, token);
+    rememberScopes(payload);
     return token;
   }
 
@@ -256,11 +297,37 @@
     token = null;
     account = null;
     pathRoot = null;
+    granted = null;
     global.sessionStorage.removeItem(TOKEN_KEY);
     global.localStorage.removeItem(REFRESH_KEY);
+    global.localStorage.removeItem(GRANTED_KEY);
   }
 
   /* ---------- API ---------- */
+
+  /*
+   * A 401 from Dropbox always means the token cannot do this, and a token carries the
+   * scopes it was issued with — refreshing never upgrades them. So there is nothing to
+   * retry: the permission has to be granted and the user has to sign in again. Clearing
+   * the stored token here is what makes the UI offer that instead of looping.
+   *
+   * `needed` names the scope this endpoint requires, so the message is actionable even
+   * when Dropbox returns an empty body.
+   */
+  function authFailure(response, text, needed) {
+    const declared = /"required_scope":\s*"([^"]+)"/.exec(text || '');
+    const scope = declared ? declared[1] : needed;
+    signOut();
+
+    const error = new Error(
+      'Dropbox refused this call (401). ' +
+      (scope ? 'It needs the "' + scope + '" permission. ' : 'The sign-in is no longer valid. ') +
+      'Open your Dropbox app\'s Permissions tab, tick it, click Submit, then connect again — ' +
+      'a permission added after you connected does not apply to an existing sign-in.'
+    );
+    error.missingScope = scope || 'unknown';
+    return error;
+  }
 
   async function rpc(endpoint, body) {
     if (!token) throw new Error('Not signed in to Dropbox.');
@@ -290,24 +357,7 @@
     }
     if (!response.ok) {
       const text = await response.text();
-
-      /*
-       * A token carries the scopes it was issued with. Adding a permission to the Dropbox
-       * app does not upgrade tokens already granted, so the stored one has to go or the
-       * user would keep hitting this with no way out.
-       */
-      const missing = /"required_scope":\s*"([^"]+)"/.exec(text);
-      if (missing) {
-        signOut();
-        const error = new Error(
-          'Dropbox is missing the "' + missing[1] + '" permission. Add it on the app\'s ' +
-          'Permissions tab, click Submit, then connect again — a permission added after you ' +
-          'connected does not apply to an existing sign-in.'
-        );
-        error.missingScope = missing[1];
-        throw error;
-      }
-
+      if (response.status === 401) throw authFailure(response, text, SCOPE_FOR[endpoint]);
       throw new Error('Dropbox ' + endpoint + ' failed (' + response.status + '): ' + text.slice(0, 200));
     }
     return response.json();
@@ -395,17 +445,8 @@
 
     if (!response.ok) {
       const text = await response.text();
-      const missing = /"required_scope":\s*"([^"]+)"/.exec(text);
-      if (missing) {
-        signOut();
-        const error = new Error(
-          'Dropbox is missing the "' + missing[1] + '" permission. Add it on the app\'s ' +
-          'Permissions tab, click Submit, then connect again.'
-        );
-        error.missingScope = missing[1];
-        throw error;
-      }
-      throw new Error('Could not download ' + path + ' (' + response.status + ').');
+      if (response.status === 401) throw authFailure(response, text, SCOPE_FOR['/files/download']);
+      throw new Error('Could not download ' + path + ' (' + response.status + '): ' + text.slice(0, 160));
     }
     return response.arrayBuffer();
   }
@@ -461,6 +502,8 @@
     signOut: signOut,
     restore: restore,
     getAccount: getAccount,
+    missingScopes: missingScopes,
+    SCOPES: SCOPES,
     takeResumeState: takeResumeState,
     listFolderRecursive: listFolderRecursive,
     listFolderChildren: listFolderChildren,
