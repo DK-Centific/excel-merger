@@ -80,8 +80,18 @@
    * "ABRAHAM-OTIENO" reach the same key. Deliberately exact after normalizing:
    * "Ronald Okoth" and "Ronald Okothh" are different people and must not merge.
    */
+  /*
+   * Strip accents rather than deleting them. Dropping the character outright turned
+   * "Strnadelová" into "strnadelov", which would not match a sheet spelling it
+   * "Strnadelova" — folding gives both sides "strnadelova".
+   */
+  function fold(text) {
+    return String(text == null ? '' : text).normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
   function normalizeName(text) {
-    return lower(text)
+    return fold(text)
+      .toLowerCase()
       .replace(/[._\-–—]+/g, ' ')
       .replace(/[^a-z0-9 ]/g, '')
       .replace(/\s+/g, ' ')
@@ -171,11 +181,27 @@
 
   /* ---------- filename classification ---------- */
 
+  /*
+   * Real filenames put the extension in places a plain "ends with .mp4" test misses:
+   *   "… Expression.mp4 Frowning"   the expression trails the extension
+   *   "… Expression Smiling,mp4"    a comma typed instead of a full stop
+   * Both are videos. Look for the extension anywhere, treating a comma as a full stop,
+   * rather than insisting it be last.
+   */
+  function videoExtensionIn(name, config) {
+    const candidate = fold(baseName(name)).replace(/,/g, '.');
+    for (let i = 0; i < config.videoExt.length; i++) {
+      const ext = config.videoExt[i];
+      if (new RegExp('\\' + ext + '(?![a-z0-9])', 'i').test(candidate)) return ext;
+    }
+    return null;
+  }
+
   function classifyFile(name, config) {
     const base = lower(baseName(name));
     const ext = extensionOf(base);
 
-    if (config.videoExt.indexOf(ext) !== -1) return 'video';
+    if (videoExtensionIn(name, config)) return 'video';
 
     const isAssent = config.assentMatch.some(function (token) { return base.indexOf(token) !== -1; });
     if (isAssent && config.assentExt.indexOf(ext) !== -1) return 'assent';
@@ -196,8 +222,8 @@
 
   /* Split a filename into word-ish tokens so a typo can be compared token by token. */
   function tokenize(name) {
-    return lower(baseName(name))
-      .replace(/\.[^.]+$/, '')
+    return fold(baseName(name))
+      .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter(Boolean);
   }
@@ -207,30 +233,51 @@
    * filename typo like N3UTRAL still reads as neutral rather than silently flipping the row
    * into the wrong slot.
    */
+  function isNeutralish(token, target, config) {
+    if (token === target) return { hit: true, fuzzy: false };
+    if (!config.fuzzyExpression || !global.MergerCore || !global.MergerCore.editDistance) return null;
+    if (Math.abs(token.length - target.length) > 2) return null;
+    const distance = global.MergerCore.editDistance(token, target);
+    return distance > 0 && distance <= 2 ? { hit: true, fuzzy: true } : null;
+  }
+
+  /*
+   * "Non Neutral" contains the word "neutral", so a plain search for it reads a
+   * non-neutral clip as neutral and files the video against the wrong row. The negation
+   * has to win, in every spelling seen in the wild: "Non Neutral", "NonNeutral",
+   * "Non-Neutral", and "Non N3UTRAL" where the second word is itself mistyped.
+   */
   function deriveExpression(name, config) {
     const target = config.expressionNeutralToken;
     const tokens = tokenize(name);
 
-    for (let i = 0; i < tokens.length; i++) {
-      if (tokens[i] === target) return { expression: NEUTRAL, token: tokens[i], fuzzy: false };
+    if (new RegExp('\\bnon\\s*' + target + '\\b').test(tokens.join(' '))) {
+      return { expression: NON_NEUTRAL, token: nonNeutralToken(tokens, name), fuzzy: false };
     }
 
-    if (config.fuzzyExpression && global.MergerCore && global.MergerCore.editDistance) {
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (Math.abs(token.length - target.length) > 2) continue;
-        const distance = global.MergerCore.editDistance(token, target);
-        if (distance > 0 && distance <= 2) {
-          return { expression: NEUTRAL, token: token, fuzzy: true };
-        }
+    for (let i = 0; i < tokens.length; i++) {
+      const match = isNeutralish(tokens[i], target, config);
+      if (!match) continue;
+      // A preceding "non" negates it, however the neutral word itself was spelled.
+      if (i > 0 && tokens[i - 1] === 'non') {
+        return { expression: NON_NEUTRAL, token: nonNeutralToken(tokens, name), fuzzy: false };
       }
+      if (/^non/.test(tokens[i]) && tokens[i] !== target) {
+        return { expression: NON_NEUTRAL, token: nonNeutralToken(tokens, name), fuzzy: false };
+      }
+      return { expression: NEUTRAL, token: tokens[i], fuzzy: match.fuzzy };
     }
 
     return { expression: NON_NEUTRAL, token: nonNeutralToken(tokens, name), fuzzy: false };
   }
 
   /* The descriptive word (SMILING, FROWNING…) is what column K disambiguates against. */
-  const STRUCTURAL_TOKENS = ['indoor', 'outdoor', 'mp4', 'mov', 'video', 'expression'];
+  /* Words that describe the file rather than the expression being performed. */
+  const STRUCTURAL_TOKENS = [
+    'indoor', 'outdoor', 'video', 'expression', 'expressions',
+    'non', 'neutral', 'nonneutral',
+    'mp4', 'mov', 'm4v', 'avi', 'mkv',
+  ];
 
   function nonNeutralToken(tokens, name) {
     const env = lower(deriveEnvironment(name) || '');

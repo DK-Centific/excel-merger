@@ -329,6 +329,15 @@ off its filename and matched to the row wanting that combination.
 - **Name join** normalizes case and separators, then matches **exactly**. `Ronald Okoth` and `Ronald Okothh`
   are different people and never merge.
 - **Expression** tolerates typos — `N3UTRAL` still reads as Neutral — reusing the merger's edit-distance.
+  **"Non Neutral" always wins over the "Neutral" inside it**, in every spelling seen in real batches:
+  `Non Neutral`, `NonNeutral`, `Non-Neutral`, even `Non N3UTRAL`. Getting this wrong files a non-neutral clip
+  against a neutral row.
+- **Video extensions are found anywhere in the name**, not only at the end, because real files arrive as
+  `… Expression.mp4 Frowning` (expression after the extension) and `… Smiling,mp4` (comma for a full stop).
+- **Accents fold rather than drop**, so `Strnadelová` matches a sheet spelling it `Strnadelova`.
+- **The participant leads the filename** (`ABRAHAM-OTIENO_INDOOR_NEUTRAL.mp4`, `Najeeb – Indoor …`), so a name
+  matching at the start beats one merely contained, and the longest match wins — otherwise `Ronald Okoth`
+  claims `Ronald Okothh`'s videos and `Najeeb` claims `Najeeb Ali`'s.
 - **Column K breaks ties.** When two videos both map to (Indoor, Non-Neutral), K names which one this row
   wants. If K doesn't single one out, the row is flagged rather than guessed.
 

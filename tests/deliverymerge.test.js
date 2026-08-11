@@ -103,6 +103,20 @@ check('unrelated filename yields nothing', DM.participantKeysForFile(
   { name: 'readme.txt', path_display: '/Agency/Powerling/Batch_5/readme.txt' },
   ROOTS, ['abraham otieno']), []);
 
+// names lead the filename, so a leading match beats one merely contained
+check('hyphenated name at the start wins', DM.participantKeysForFile(
+  { name: 'ABRAHAM-OTIENO_INDOOR_NEUTRAL.mp4', path_display: '/Agency/Powerling/Batch_5/ABRAHAM-OTIENO_INDOOR_NEUTRAL.mp4' },
+  ROOTS, ['abraham otieno', 'otieno']), ['abraham otieno']);
+check('longer near-duplicate is not stolen by the shorter', DM.participantKeysForFile(
+  { name: 'RONALD-OKOTHH_INDOOR_NEUTRAL.mp4', path_display: '/Agency/Powerling/Batch_5/RONALD-OKOTHH_INDOOR_NEUTRAL.mp4' },
+  ROOTS, ['ronald okoth', 'ronald okothh']), ['ronald okothh']);
+check('short name does not claim a longer one', DM.participantKeysForFile(
+  { name: 'Najeeb Ali – Indoor Neutral Expression.mp4', path_display: '/Agency/Powerling/Batch_5/Najeeb Ali – Indoor Neutral Expression.mp4' },
+  ROOTS, ['najeeb', 'najeeb ali']), ['najeeb ali']);
+check('accented filename matches an unaccented sheet name', DM.participantKeysForFile(
+  { name: 'Sophie Strnadelová – Outdoor Neutral Expression.mp4', path_display: '/Agency/Powerling/Batch_5/Sophie Strnadelová – Outdoor Neutral Expression.mp4' },
+  ROOTS, ['sophie strnadelova']), ['sophie strnadelova']);
+
 console.log('\nColumns A, B, C are generated output, never sourced');
 
 // participant_sequence: one number per participant, repeated across their video rows

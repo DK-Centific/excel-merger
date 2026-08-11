@@ -221,12 +221,24 @@
       break;
     }
 
-    // Fall back to the filename when the media is flat.
-    const base = LF.normalizeName(String(file.name || '').replace(/\.[^.]+$/, ''));
+    /*
+     * Fall back to the filename. Video names lead with the participant —
+     * "ABRAHAM-OTIENO_INDOOR_NEUTRAL.mp4", "Najeeb – Indoor …" — so a name at the start
+     * beats one merely contained somewhere, and the longest match wins. Without that,
+     * "Ronald Okoth" would claim "Ronald Okothh"'s files, and a short name like "Najeeb"
+     * would claim "Najeeb Ali"'s.
+     */
+    const base = LF.normalizeName(String(file.name || ''));
     if (base) {
+      let best = null;
       knownKeys.forEach(function (known) {
-        if (known && base.indexOf(known) !== -1 && keys.indexOf(known) === -1) keys.push(known);
+        if (!known) return;
+        const at = base.indexOf(known);
+        if (at === -1) return;
+        const score = (at === 0 ? 1000 : 0) + known.length;
+        if (!best || score > best.score) best = { key: known, score: score };
       });
+      if (best && keys.indexOf(best.key) === -1) keys.push(best.key);
     }
     return keys;
   }

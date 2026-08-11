@@ -67,6 +67,42 @@ check('non-neutral token extracted', LF.deriveExpression('A_INDOOR_SMILING.mp4',
 check('Aqlama phrasing reads neutral',
   LF.deriveExpression('Asnet Kalai – Indoor Neutral Expression.mov', LF.AGENCY_PRESETS.Aqlama).expression, 'Neutral');
 
+/* ---- real agency video filenames ---- */
+console.log('\nReal video filenames');
+const VIDEOS = [
+  ['ABRAHAM-OTIENO_INDOOR_N3UTRAL.mp4',                                'Indoor',  'Neutral',     null,       'abraham otieno'],
+  ['ALISHER-IMBULANI_OUTDOOR_NEUTRAL.mp4',                             'Outdoor', 'Neutral',     null,       'alisher imbulani'],
+  ['Sophie Strnadelová – Outdoor Non Neutral Expression.mp4 Frowning', 'Outdoor', 'Non-Neutral', 'frowning', 'sophie strnadelova'],
+  ['Najeeb – Indoor Non Neutral Expression Smiling.mp4',               'Indoor',  'Non-Neutral', 'smiling',  'najeeb'],
+  ['Maria Vogiatzi – Indoor Non Neutral Expression Smiling,mp4',       'Indoor',  'Non-Neutral', 'smiling',  'maria vogiatzi'],
+  ['Chizuru Watanabe – Indoor Neutral Expression.mov',                 'Indoor',  'Neutral',     null,       'chizuru watanabe'],
+  ['R B Vaishali - Indoor NonNeutral angry.mp4',                       'Indoor',  'Non-Neutral', 'angry',    'r b vaishali'],
+];
+VIDEOS.forEach(function (row) {
+  const name = row[0], env = row[1], expr = row[2], token = row[3];
+  const short = name.length > 34 ? name.slice(0, 34) + '…' : name;
+  check(short + ' is a video', LF.classifyFile(name, cfg), 'video');
+  check(short + ' env', LF.deriveEnvironment(name), env);
+  const derived = LF.deriveExpression(name, cfg);
+  check(short + ' expression', derived.expression, expr);
+  if (token) check(short + ' token', derived.token, token);
+});
+
+// the trap: "Non Neutral" contains "neutral"
+check('"Non Neutral" is never read as Neutral',
+  ['Non Neutral', 'NonNeutral', 'Non-Neutral', 'non neutral', 'Non N3UTRAL'].map(function (variant) {
+    return LF.deriveExpression('X – Indoor ' + variant + ' Expression.mp4', cfg).expression;
+  }), ['Non-Neutral', 'Non-Neutral', 'Non-Neutral', 'Non-Neutral', 'Non-Neutral']);
+check('plain Neutral still reads Neutral',
+  LF.deriveExpression('X – Indoor Neutral Expression.mp4', cfg).expression, 'Neutral');
+
+// accents must fold, not vanish
+check('accented name folds to the unaccented spelling',
+  LF.normalizeName('Sophie Strnadelová'), LF.normalizeName('Sophie Strnadelova'));
+check('consent files are still not videos',
+  [LF.classifyFile('ABRAHAM-OTIENO-CONSENT.pdf', cfg), LF.classifyFile('X_ASSENT.jpg', cfg)],
+  ['icf', 'assent']);
+
 /* ---- integration ---- */
 const row = (name, expr, env, k) => {
   const v = new Array(30).fill(null);
