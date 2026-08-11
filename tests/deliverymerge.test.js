@@ -103,5 +103,55 @@ check('unrelated filename yields nothing', DM.participantKeysForFile(
   { name: 'readme.txt', path_display: '/Agency/Powerling/Batch_5/readme.txt' },
   ROOTS, ['abraham otieno']), []);
 
+console.log('\nColumns A, B, C are generated output, never sourced');
+
+// participant_sequence: one number per participant, repeated across their video rows
+let annotated = [
+  mk({ [OUT.FOLDER]: 'Abraham Otieno' }), mk({ [OUT.FOLDER]: 'Abraham Otieno' }),
+  mk({ [OUT.FOLDER]: 'Asnet Kalai' }),    mk({ [OUT.FOLDER]: 'ABRAHAM  OTIENO' }),
+];
+DM.annotate(annotated, [], null);
+check('sequence numbers participants, not rows',
+  annotated.map(r => r.values[OUT.SEQUENCE]), [1, 1, 2, 1]);
+check('clean rows read OK',
+  annotated.map(r => r.values[OUT.QA_RESULT]), ['OK', 'OK', 'OK', 'OK']);
+check('clean rows have no comment', annotated[0].values[OUT.COMMENTS], null);
+
+// verdicts escalate: auto-fixed < review < error
+annotated = [mk({ [OUT.FOLDER]: 'A' }), mk({ [OUT.FOLDER]: 'B' }), mk({ [OUT.FOLDER]: 'C' })];
+DM.annotate(annotated, [
+  { row: 2, severity: 'fixed',  rule: 'Whitespace tidied', message: 'Spaces removed.' },
+  { row: 3, severity: 'fixed',  rule: 'Whitespace tidied', message: 'Spaces removed.' },
+  { row: 3, severity: 'review', rule: 'Birthdate needs a manual fix', message: 'Unreadable.' },
+  { row: 4, severity: 'error',  rule: 'Workbook skipped', message: 'Bad file.' },
+], null);
+check('auto-fixed only', annotated[0].values[OUT.QA_RESULT], DM.QA_FIXED);
+check('review beats auto-fixed', annotated[1].values[OUT.QA_RESULT], DM.QA_REVIEW);
+check('error beats review', annotated[2].values[OUT.QA_RESULT], DM.QA_ERROR);
+check('comments join every finding for that row',
+  annotated[1].values[OUT.COMMENTS],
+  'Whitespace tidied: Spaces removed. | Birthdate needs a manual fix: Unreadable.');
+
+// link-mapping problems land in the same verdict
+annotated = [mk({ [OUT.FOLDER]: 'A' })];
+DM.annotate(annotated, [], [{ problems: ['No unambiguous assent file for this participant.'] }]);
+check('link problems force review', annotated[0].values[OUT.QA_RESULT], DM.QA_REVIEW);
+check('link problems appear in comments', annotated[0].values[OUT.COMMENTS],
+  'No unambiguous assent file for this participant.');
+
+// a row can carry both a QA finding and a link problem; both must survive
+annotated = [mk({ [OUT.FOLDER]: 'Asnet Kalai' })];
+DM.annotate(annotated,
+  [{ row: 2, severity: 'review', rule: 'Birthdate needs a manual fix', message: 'Unreadable.' }],
+  [{ problems: ['No unambiguous assent file for this participant.'] }]);
+check('QA finding and link problem both appear', annotated[0].values[OUT.COMMENTS],
+  'Birthdate needs a manual fix: Unreadable. | No unambiguous assent file for this participant.');
+check('verdict stays Review', annotated[0].values[OUT.QA_RESULT], DM.QA_REVIEW);
+
+// file-level issues have no row and must not be pinned to row 2
+annotated = [mk({ [OUT.FOLDER]: 'A' })];
+DM.annotate(annotated, [{ row: null, severity: 'error', rule: 'Workbook skipped', message: 'x' }], null);
+check('file-level issue not attributed to a row', annotated[0].values[OUT.QA_RESULT], DM.QA_OK);
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' CHECKS PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail === 0 ? 0 : 1);

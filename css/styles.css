@@ -127,8 +127,8 @@ code {
   width: 26px; height: 26px;
   flex: 0 0 26px;
   background-color: var(--brand);
-  -webkit-mask: url('../assets/centific-mark.png?v=11') no-repeat center / contain;
-  mask: url('../assets/centific-mark.png?v=11') no-repeat center / contain;
+  -webkit-mask: url('../assets/centific-mark.png?v=12') no-repeat center / contain;
+  mask: url('../assets/centific-mark.png?v=12') no-repeat center / contain;
 }
 .nav-sep { color: var(--text3); font-size: 14px; }
 .nav-sub {

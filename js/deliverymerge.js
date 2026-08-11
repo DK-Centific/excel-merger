@@ -231,7 +231,59 @@
     return keys;
   }
 
+  /*
+   * Fill columns A, B and C. These never come from the agency files — they are the tool's
+   * own output, written after QA and link mapping so each row carries its own verdict.
+   */
+  const QA_OK = 'OK';
+  const QA_FIXED = 'Auto-fixed';
+  const QA_REVIEW = 'Review';
+  const QA_ERROR = 'Error';
+
+  function annotate(rows, issues, planRows) {
+    // A: one number per participant, repeated across that participant's video rows.
+    const sequence = {};
+    let next = 0;
+    rows.forEach(function (row) {
+      const key = LF.normalizeName(row.values[OUT.FOLDER]) || LF.normalizeName(row.values[OUT.NAME]);
+      if (!key) { row.values[OUT.SEQUENCE] = null; return; }
+      if (sequence[key] == null) { next += 1; sequence[key] = next; }
+      row.values[OUT.SEQUENCE] = sequence[key];
+    });
+
+    const byRow = {};
+    (issues || []).forEach(function (item) {
+      if (!item.row) return; // file-level, not attributable to a row
+      if (!byRow[item.row]) byRow[item.row] = [];
+      byRow[item.row].push(item);
+    });
+
+    rows.forEach(function (row, index) {
+      const excelRow = index + 2;
+      const found = byRow[excelRow] || [];
+      const plan = (planRows && planRows[index]) || null;
+      const problems = (plan && plan.problems) || [];
+
+      let verdict = QA_OK;
+      if (found.some(function (i) { return i.severity === 'error'; })) verdict = QA_ERROR;
+      else if (found.some(function (i) { return i.severity === 'review'; }) || problems.length) verdict = QA_REVIEW;
+      else if (found.length) verdict = QA_FIXED;
+
+      const comments = found.map(function (item) {
+        return item.rule + (item.message ? ': ' + item.message : '');
+      }).concat(problems);
+
+      row.values[OUT.QA_RESULT] = verdict;
+      row.values[OUT.COMMENTS] = comments.length ? comments.join(' | ') : null;
+    });
+  }
+
   global.DeliveryMerge = {
+    QA_OK: QA_OK,
+    QA_FIXED: QA_FIXED,
+    QA_REVIEW: QA_REVIEW,
+    QA_ERROR: QA_ERROR,
+    annotate: annotate,
     ATTRIBUTE_COLUMNS: ATTRIBUTE_COLUMNS,
     isMetadataWorkbook: isMetadataWorkbook,
     runQa: runQa,

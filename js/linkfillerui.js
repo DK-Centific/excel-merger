@@ -1049,6 +1049,9 @@
       setBusy('Building the delivery sheet…');
       const written = applyLinksToRows();
 
+      // A, B and C are the tool's own output — written last, once links are resolved.
+      DM.annotate(state.rows, state.issues, state.plan.rows);
+
       const workbook = META.buildDeliveryWorkbook(state.rows, {
         qa: state.issues,
         highlight: highlightsFor(),
