@@ -102,6 +102,7 @@ thousand video files in Dropbox.
 
 | What you see | What to do |
 |---|---|
+| *"This app has reached its user limit"* | Not something you can fix — the Dropbox app needs approving for production. Tell whoever set it up |
 | *"This sign-in is missing a permission"* | Someone needs to tick it in the Dropbox app settings, then you click **Disconnect** and connect again |
 | *"No Excel files were found"* | Check you ticked the right folders — it looks inside subfolders too |
 | *"None with recognisable headers"* | Click **Find the Excel files**, download one, and check its header row |
