@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Merge</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=15">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=15">
+<link rel="stylesheet" href="css/styles.css?v=15">
+<style>
+  .doc { max-width: 68ch; }
+  .doc h2 { font-size: 19px; margin: 36px 0 12px; letter-spacing: -.02em; }
+  .doc h2:first-of-type { margin-top: 28px; }
+  .doc p, .doc li { font-size: 14.5px; line-height: 1.65; color: var(--text2); }
+  .doc ul { margin: 0 0 0 1.1em; padding: 0; }
+  .doc li { margin-bottom: 6px; }
+  .doc strong { color: var(--text); }
+  .doc .updated { font-family: var(--font-mono); font-size: 12px; color: var(--text3); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-logo" role="img" aria-label="Centific Merge"></span>
+    <span class="nav-sep">/</span>
+    <span class="nav-sub">Agency Excel Consolidator</span>
+  </div>
+</nav>
+
+<main class="shell">
+  <header class="hero">
+    <p class="hero-eyebrow">Privacy Policy</p>
+    <h1 class="hero-title">What this tool does with your data.</h1>
+    <p class="hero-sub doc">
+      Merge is an internal Centific tool for our data-delivery team. It combines agency participant
+      spreadsheets and fills in Dropbox links for review before client delivery. This page explains what
+      data it touches and where it goes.
+    </p>
+    <p class="updated">Last updated 2026-08-11</p>
+  </header>
+
+  <div class="doc">
+    <h2>Who this is for</h2>
+    <p>
+      This is an internal tool used by Centific staff who work on data-delivery projects. It is not a
+      public consumer product, and it is not intended for use outside Centific.
+    </p>
+
+    <h2>Where your data goes</h2>
+    <p>
+      Merge runs entirely in your web browser. There is <strong>no backend server</strong> — nothing you
+      open or process is ever uploaded to us or to any third party we control. The two places data
+      moves are:
+    </p>
+    <ul>
+      <li><strong>Your device's memory</strong>, while a spreadsheet is open in the browser tab.</li>
+      <li><strong>Dropbox's own API</strong>, when you connect your Dropbox account and the tool reads
+        folders, downloads spreadsheets, or resolves/creates shared links on your behalf.</li>
+    </ul>
+    <p>
+      Closing the tab clears everything that was loaded. Nothing is written to a database anywhere.
+    </p>
+
+    <h2>What it reads from Dropbox</h2>
+    <p>Using your own Dropbox sign-in, and only for folders your account can already access:</p>
+    <ul>
+      <li>Folder and file listings, to find the agency spreadsheets and media files.</li>
+      <li>The <strong>content of <code>.xlsx</code> spreadsheets only</strong> — video, photo and PDF files
+        are never downloaded, only linked.</li>
+      <li>Existing shared links, so a second run reuses them instead of creating duplicates.</li>
+    </ul>
+    <p>
+      It can also <strong>create</strong> a Dropbox shared link, but only for a file you've reviewed and
+      only after you click a confirmation button showing exactly how many links will be created.
+    </p>
+
+    <h2>What kind of data is in the spreadsheets</h2>
+    <p>
+      The spreadsheets processed by this tool can contain participant names, contact emails, guardian
+      names and contact details, birthdates, and links to media files. This is why the tool is
+      browser-only with no server component — that data should not pass through infrastructure beyond
+      what the delivery team already controls in Dropbox.
+    </p>
+
+    <h2>Sign-in</h2>
+    <p>
+      Signing in to Dropbox is per person — each user connects their own account, and the tool only ever
+      sees what that account can already open. Centific does not receive or store your Dropbox password;
+      sign-in goes directly through Dropbox's own login page.
+    </p>
+
+    <h2>Cookies and tracking</h2>
+    <p>
+      No analytics, no advertising, no third-party tracking scripts. The site stores a small amount of
+      configuration (like which folder to open by default) in your browser's local storage, and your
+      Dropbox session token in your browser's session storage so you don't have to sign in every time.
+      Both stay on your device.
+    </p>
+
+    <h2>Questions</h2>
+    <p>
+      This tool is maintained internally at Centific. If you have questions about this policy or how the
+      tool handles data, contact the team that shared this link with you.
+    </p>
+  </div>
+</main>
+
+</body>
+</html>
