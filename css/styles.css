@@ -119,18 +119,25 @@ code {
 }
 .nav-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
 
+/*
+ * The mark is a solid shape on transparency, so masking it lets the brand colour
+ * come from a CSS variable instead of being baked into the image.
+ */
 .nav-logo {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  display: block;
-  object-fit: contain;
+  width: 26px; height: 26px;
+  flex: 0 0 26px;
+  background-color: var(--brand);
+  -webkit-mask: url('../assets/centific-mark.png?v=15') no-repeat center / contain;
+  mask: url('../assets/centific-mark.png?v=15') no-repeat center / contain;
 }
-.nav-title {
-  font-size: 14.5px;
-  font-weight: 600;
-  letter-spacing: -.02em;
-  color: var(--text);
+.nav-sep { color: var(--text3); font-size: 14px; }
+.nav-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--text3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -996,7 +1003,7 @@ tr.is-missing td { background: var(--red-bg); }
   .shell { padding: 20px 16px 56px; }
   .card { padding: 18px 16px; }
   .nav { padding: 0 16px; }
-  .nav-title { font-size: 13px; }
+  .nav-sep, .nav-sub { display: none; }
   .option-row { flex-direction: column; gap: 12px; }
   .stat-value { font-size: 28px; }
 }
